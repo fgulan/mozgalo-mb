@@ -1,5 +1,9 @@
 
 # Created by https://www.gitignore.io/api/linux,macos,python,windows,pycharm,sublimetext,jupyternotebook,visualstudiocode
+#
+
+src/data/*
+!src/data/.dummy_readme.md
 
 ### JupyterNotebook ###
 .ipynb_checkpoints
