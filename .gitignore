@@ -5,6 +5,9 @@
 src/data/*
 !src/data/.dummy_readme.md
 
+src/models/*
+!src/models/.dummy_readme.md
+
 ### JupyterNotebook ###
 .ipynb_checkpoints
 */.ipynb_checkpoints/*

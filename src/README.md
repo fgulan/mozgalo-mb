@@ -10,6 +10,8 @@ TODO
 ### data/
 Contains raw data.
 
+### models/
+Contains trained models.
+
 ### utils.py
 Utility functions shared across the code.
-

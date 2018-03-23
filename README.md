@@ -1,2 +1,2 @@
 # mozgalo-mb
-Mozglao competition
+Mozgalo competition
