@@ -8,8 +8,8 @@ from keras.models import Model
 from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 
-from src.metrics import Metrics, top_3_acc
-from src.model import XceptionModel
+from metrics import Metrics, top_3_acc
+from model import XceptionModel
 
 
 def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.4f}.hdf5",
