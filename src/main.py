@@ -4,16 +4,15 @@ from datetime import datetime
 import numpy as np
 from keras import optimizers
 from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBoard
-from keras.metrics import top_k_categorical_accuracy
 from keras.models import Model
 from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 
-from src.metrics import Metrics
+from src.metrics import Metrics, top_3_acc
 from src.model import XceptionModel
 
 
-def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.3f}.hdf5",
+def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.4f}.hdf5",
                   save_epochs=1, patience=5, min_delta=0):
     """
 
@@ -67,7 +66,7 @@ def main():
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
                   metrics=['accuracy',
-                           top_k_categorical_accuracy])
+                           top_3_acc])
 
     # train the model on the new data for a few epochs
     model.fit(x=x_train, y=one_hot_train,
