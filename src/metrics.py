@@ -1,51 +1,36 @@
-from keras import backend as K
+import keras
+import numpy as np
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 
-def precision(y_true, y_pred):
-    """Precision metric.
-    Only computes a batch-wise average of precision.
-    Computes the precision, a metric for multi-label classification of
-    how many selected items are relevant.
+class Metrics(keras.callbacks.Callback):
     """
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    return true_positives / (predicted_positives + K.epsilon())
-
-
-def recall(y_true, y_pred):
-    """Recall metric.
-    Only computes a batch-wise average of recall.
-    Computes the recall, a metric for multi-label classification of
-    how many relevant items are selected.
+    Implementation of F1, Precision, and Recall macro metrics according to:
+    https://github.com/keras-team/keras/issues/5794
     """
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    return true_positives / (possible_positives + K.epsilon())
 
+    def on_epoch_end(self, batch, logs={}):
+        mbatch = self.params['batch_size']
+        f1s, precs, recs = 0, 0, 0
 
-def fbeta_score(y_true, y_pred, beta=1):
-    """Computes the F score.
-    The F score is the weighted harmonic mean of precision and recall.
-    Here it is only computed as a batch-wise average, not globally.
-    This is useful for multi-label classification, where input samples can be
-    classified as sets of labels. By only using accuracy (precision) a model
-    would achieve a perfect score by simply assigning every class to every
-    input. In order to avoid this, a metric should penalize incorrect class
-    assignments as well (recall). The F-beta score (ranged from 0.0 to 1.0)
-    computes this, as a weighted mean of the proportion of correct class
-    assignments vs. the proportion of incorrect class assignments.
-    With beta = 1, this is equivalent to a F-measure. With beta < 1, assigning
-    correct classes becomes more important, and with beta > 1 the metric is
-    instead weighted towards penalizing incorrect class assignments.
-    """
-    if beta < 0:
-        raise ValueError('The lowest choosable beta is zero (only precision).')
+        batches = len(self.validation_data[0]) // mbatch
+        iters = batches if len(self.validation_data[0]) % mbatch == 0 else batches + 1
 
-    # If there are no true positives, fix the F score at 0 like sklearn.
-    if K.sum(K.round(K.clip(y_true, 0, 1))) == 0:
-        return 0
+        print("Calculating metrics on the Validation data")
 
-    p = precision(y_true, y_pred)
-    r = recall(y_true, y_pred)
-    bb = beta ** 2
-    return (1 + bb) * (p * r) / (bb * p + r + K.epsilon())
+        for i in range(iters):
+            batch_input = self.validation_data[0][i * mbatch:(i + 1) * mbatch]
+            batch_output = self.validation_data[1][i * mbatch:(i + 1) * mbatch]
+
+            predict = np.argmax(np.asarray(self.model.predict(batch_input)),
+                                axis=1)
+            targ = np.argmax(batch_output, axis=1)
+
+            f1s += f1_score(targ, predict, average="macro")
+            precs += precision_score(targ, predict, average="macro")
+            recs += recall_score(targ, predict, average="macro")
+
+        print("F1: {:.2f}, Precision: {:.2f}, Recall {:.2f}\n".format(
+            f1s / iters, precs / iters, recs / iters))
+
+        return
