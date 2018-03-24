@@ -13,5 +13,11 @@ Contains raw data.
 ### models/
 Contains trained models.
 
+### logs/
+Tensorboard visualizations. Run `tensorboard --logdir=/path_to_your_logs` to see the
+logs in the browser.
+
 ### utils.py
 Utility functions shared across the code.
+
+

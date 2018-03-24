@@ -8,6 +8,8 @@ src/data/*
 src/models/*
 !src/models/.dummy_readme.md
 
+src/logs/*
+
 ### JupyterNotebook ###
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
