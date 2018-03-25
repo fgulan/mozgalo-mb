@@ -80,8 +80,10 @@ def main():
     # train the model on the new data for a few epochs
     model.fit_generator(
             train_generator,
-            steps_per_epoch=2000 // batch_size,
-            epochs=2)
+            steps_per_epoch=500 // batch_size,
+            epochs=2, 
+            validation_data=train_generator,
+            validation_steps=300 // batch_size)
 
 
 if __name__ == "__main__":
