@@ -6,6 +6,7 @@ from keras import optimizers
 from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBoard
 from keras.models import Model
 from keras.utils import to_categorical
+from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
 from sklearn.model_selection import train_test_split
 
 import utils
@@ -43,7 +44,7 @@ def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.4
 def main():
     # create the base pre-trained model
     # Keras will automatically download pre-trained weights if they are missing
-    predictions, base_model = XceptionModel((299, 150, 3), 26)
+    predictions, base_model = XceptionModel((299, 150, 3), 25)
 
     # this is the model we will train
     model = Model(inputs=base_model.input, outputs=predictions)
@@ -52,16 +53,23 @@ def main():
     # i.e. freeze all convolutional InceptionV3 layers
     for layer in base_model.layers:
         layer.trainable = False
+    
+    # batch size 
+    batch_size = 16
 
-    # DUMMY DATA
-    data = np.random.random((100, 299, 150, 3))
-    labels = np.random.randint(26, size=(100, 1))
+    # Create data generator
+    train_datagen = ImageDataGenerator(
+            rescale=1./255,
+            validation_split=0.3)
 
-    x_train, x_val, y_train, y_val = train_test_split(data, labels, test_size=0.4)
-
-    # Convert labels to categorical one-hot encoding
-    one_hot_train = to_categorical(y_train, num_classes=26)
-    one_hot_val = to_categorical(y_val, num_classes=26)
+    # this is a generator that will read pictures found in
+    # subfolers of 'data/train', and indefinitely generate
+    # batches of augmented image data
+    train_generator = train_datagen.flow_from_directory(
+            '/Users/filipgulan/dataset-mozgalo',
+            target_size=(299, 150),
+            batch_size=batch_size,
+            class_mode='categorical')
 
     optimizer = optimizers.RMSprop(lr=0.001)
     model.compile(optimizer=optimizer,
@@ -70,10 +78,10 @@ def main():
                            top_3_acc])
 
     # train the model on the new data for a few epochs
-    model.fit(x=x_train, y=one_hot_train,
-              callbacks=get_callbacks(save_epochs=1, patience=5),
-              batch_size=3, epochs=2, shuffle=True,
-              validation_data=(x_val, one_hot_val))
+    model.fit_generator(
+            train_generator,
+            steps_per_epoch=2000 // batch_size,
+            epochs=2)
 
 
 if __name__ == "__main__":
