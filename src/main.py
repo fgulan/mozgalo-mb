@@ -8,6 +8,7 @@ from keras.models import Model
 from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 
+import utils
 from metrics import Metrics, top_3_acc
 from model import XceptionModel
 
@@ -76,7 +77,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # Set seed
-    np.random.seed(1337)
-
+    # Set seeds for reproducible results
+    utils.set_random_seeds()
     main()

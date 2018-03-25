@@ -2,6 +2,10 @@
 Utility Functions
 """
 import os
+import random as rn
+
+import numpy as np
+import tensorflow as tf
 
 
 def list_dir(dir_path, extension=None):
@@ -19,3 +23,15 @@ def list_dir(dir_path, extension=None):
         return list(filter(lambda x: x.endswith(extension), files))
     else:
         return files
+
+
+def set_random_seeds():
+    """
+    Sets random seed for multiple modules according to:
+    See: https://keras.io/getting-started/faq/#how-can-i-obtain-reproducible-results-using-keras-during-development
+    """
+
+    os.environ['PYTHONHASHSEED'] = '0'
+    np.random.seed(1337)
+    rn.seed(69)
+    tf.set_random_seed(42)
