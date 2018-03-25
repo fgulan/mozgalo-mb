@@ -68,6 +68,7 @@ def main():
     train_generator = train_datagen.flow_from_directory(
             '/Users/filipgulan/dataset-mozgalo',
             target_size=(299, 150),
+
             batch_size=batch_size,
             class_mode='categorical')
 
@@ -80,10 +81,10 @@ def main():
     # train the model on the new data for a few epochs
     model.fit_generator(
             train_generator,
-            steps_per_epoch=500 // batch_size,
+            steps_per_epoch=1500 // batch_size,
             epochs=2, 
             validation_data=train_generator,
-            validation_steps=300 // batch_size)
+            validation_steps=500 // batch_size)
 
 
 if __name__ == "__main__":
