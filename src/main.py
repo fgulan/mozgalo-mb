@@ -57,33 +57,35 @@ def main():
     # batch size 
     batch_size = 16
 
-    # Create data generator
-    train_datagen = ImageDataGenerator(
-            rescale=1./255,
-            validation_split=0.3)
+    # Create data generators
+    train_datagen = ImageDataGenerator(rescale=1./255)
+    validation_datagen = ImageDataGenerator(rescale=1./255)
 
-    # this is a generator that will read pictures found in
-    # subfolers of 'data/train', and indefinitely generate
-    # batches of augmented image data
-    train_generator = train_datagen.flow_from_directory(
-            '/Users/filipgulan/dataset-mozgalo',
+    # this is a generator that will and indefinitely 
+    # generate batches of augmented image data
+    train_flow = train_datagen.flow_from_directory(
+            '/Users/filipgulan/college/mb-dataset/train',
             target_size=(299, 150),
-
             batch_size=batch_size,
             class_mode='categorical')
+
+    validation_flow = validation_datagen.flow_from_directory(
+        '/Users/filipgulan/college/mb-dataset/validation',
+        target_size=(299, 150),
+        batch_size=batch_size,
+        class_mode='categorical')
 
     optimizer = optimizers.RMSprop(lr=0.001)
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
-                  metrics=['accuracy',
-                           top_3_acc])
+                  metrics=['accuracy', top_3_acc])
 
     # train the model on the new data for a few epochs
     model.fit_generator(
-            train_generator,
+            train_flow,
             steps_per_epoch=1500 // batch_size,
-            epochs=2, 
-            validation_data=train_generator,
+            epochs=5, 
+            validation_data=validation_flow,
             validation_steps=500 // batch_size)
 
 
