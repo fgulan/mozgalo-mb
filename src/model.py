@@ -19,7 +19,7 @@ def XceptionModel(input_shape, num_classes, weights="imagenet", include_top=Fals
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     # let's add a fully-connected layer
-    x = Dense(128, activation='relu')(x)
+    x = Dense(1024, activation='relu')(x)
     predictions = Dense(num_classes, activation='softmax')(x)
 
     return predictions, base_model

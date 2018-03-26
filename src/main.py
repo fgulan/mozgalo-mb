@@ -13,6 +13,12 @@ import utils
 from metrics import Metrics, top_3_acc
 from model import XceptionModel
 
+DATASET_ROOT_PATH = '/Users/filipgulan/college/mb-dataset'
+
+def preprocess_image(img):
+    img_array = img_to_array(img)
+    # TODO: Preprocessing
+    return array_to_img(img_array)
 
 def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.4f}.hdf5",
                   save_epochs=1, patience=5, min_delta=0):
@@ -30,7 +36,7 @@ def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.4
                                  verbose=1))
 
     loggers.append(ModelCheckpoint(weights_file, monitor='val_loss', verbose=1,
-                                   save_best_only=True, save_weights_only=False,
+                                   save_best_only=True, save_weights_only=True,
                                    period=save_epochs))
     loggers.append(BaseLogger())
     loggers.append(Metrics())
@@ -40,54 +46,61 @@ def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.4
 
     return loggers
 
-
 def main():
+    num_classes = 25
+    batch_size = 16
+    num_channels = 3
+    input_size = (299, 150)
+    epochs = 5
+    learning_rate = 0.001
+
     # create the base pre-trained model
     # Keras will automatically download pre-trained weights if they are missing
-    predictions, base_model = XceptionModel((299, 150, 3), 25)
+    predictions, base_model = XceptionModel((*input_size, num_channels), num_classes)
 
     # this is the model we will train
     model = Model(inputs=base_model.input, outputs=predictions)
-
-    # first: train only the top layers (which were randomly initialized)
-    # i.e. freeze all convolutional InceptionV3 layers
-    for layer in base_model.layers:
-        layer.trainable = False
     
-    # batch size 
-    batch_size = 16
-
     # Create data generators
-    train_datagen = ImageDataGenerator(rescale=1./255)
-    validation_datagen = ImageDataGenerator(rescale=1./255)
+    train_datagen = ImageDataGenerator(preprocessing_function=preprocess_image,
+                                        samplewise_center=True,
+                                        samplewise_std_normalization=True,
+                                        rotation_range=15,
+                                        zoom_range=(0.8, 1.2),
+                                        width_shift_range=0.1,
+                                        height_shift_range=0.1)
+
+    validation_datagen = ImageDataGenerator(preprocessing_function=preprocess_image,
+                                            samplewise_center=True,
+                                            samplewise_std_normalization=True)
 
     # this is a generator that will and indefinitely 
     # generate batches of augmented image data
+    # target_size: tuple of integers (height, width)
     train_flow = train_datagen.flow_from_directory(
-            '/Users/filipgulan/college/mb-dataset/train',
-            target_size=(299, 150),
+            DATASET_ROOT_PATH + '/train',
+            target_size=input_size,
             batch_size=batch_size,
             class_mode='categorical')
 
     validation_flow = validation_datagen.flow_from_directory(
-        '/Users/filipgulan/college/mb-dataset/validation',
-        target_size=(299, 150),
+        DATASET_ROOT_PATH + '/validation',
+        target_size=input_size,
         batch_size=batch_size,
         class_mode='categorical')
 
-    optimizer = optimizers.RMSprop(lr=0.001)
+    optimizer = optimizers.RMSprop(lr=learning_rate)
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
                   metrics=['accuracy', top_3_acc])
-
+ 
     # train the model on the new data for a few epochs
     model.fit_generator(
             train_flow,
-            steps_per_epoch=1500 // batch_size,
-            epochs=5, 
+            steps_per_epoch=train_flow.samples // batch_size,
+            epochs=epochs, 
             validation_data=validation_flow,
-            validation_steps=500 // batch_size)
-
+            validation_steps=validation_flow.samples // batch_size)
 
 if __name__ == "__main__":
     # Set seeds for reproducible results
