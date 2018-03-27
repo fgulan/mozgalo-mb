@@ -21,7 +21,7 @@ def preprocess_image(img):
     # TODO: Preprocessing
     #return array_to_img(img_array)
 
-def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.4f}.hdf5",
+def get_callbacks(weights_file="models/weights_ep:{epoch:02d}-vloss:{val_loss:.4f}.hdf5",
                   save_epochs=1, patience=5, min_delta=0):
     """
 
@@ -89,13 +89,13 @@ def main():
     # generate batches of augmented image data
     # target_size: tuple of integers (height, width)
     train_flow = train_datagen.flow_from_directory(
-            DATASET_ROOT_PATH + '/train',
+            os.path.join(DATASET_ROOT_PATH, 'train'),
             target_size=input_size,
             batch_size=batch_size,
             class_mode='categorical')
 
     validation_flow = validation_datagen.flow_from_directory(
-        DATASET_ROOT_PATH + '/validation',
+        os.path.join(DATASET_ROOT_PATH, 'validation'),
         target_size=input_size,
         batch_size=batch_size,
         class_mode='categorical')
@@ -111,12 +111,12 @@ def main():
             workers=workers,
             max_queue_size=round(workers * 1.7), # tweak if needed
             use_multiprocessing=False,
-            steps_per_epoch=round((sample * train_flow.sample_size)) // batch_size,
+            steps_per_epoch=round((sample * train_flow.samples)) // batch_size,
             epochs=epochs,
             callbacks=get_callbacks(),
             shuffle=True,
             validation_data=validation_flow,
-            validation_steps=round((sample * validation_flow.sample_size)) // batch_size)
+            validation_steps=round((sample * validation_flow.samples)) // batch_size)
 
 if __name__ == "__main__":
     # Set seeds for reproducible results
