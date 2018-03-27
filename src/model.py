@@ -1,7 +1,7 @@
 from keras.applications.densenet import DenseNet169
 from keras.applications.inception_resnet_v2 import InceptionResNetV2
 from keras.applications.xception import Xception
-from keras.layers import Dense, GlobalAveragePooling2D
+from keras.layers import Dense, GlobalAveragePooling2D, Conv2D, Flatten
 
 
 def XceptionModel(input_shape, num_classes, weights="imagenet", include_top=False):
@@ -19,6 +19,10 @@ def XceptionModel(input_shape, num_classes, weights="imagenet", include_top=Fals
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     # let's add a fully-connected layer
+
+    #x = Conv2D(num_classes, (1,1), activation='relu')(x)
+    #predictions = Flatten(activation='softmax')(x)
+
     x = Dense(1024, activation='relu')(x)
     predictions = Dense(num_classes, activation='softmax')(x)
 
