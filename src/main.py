@@ -50,12 +50,20 @@ def get_callbacks(weights_file="models/weights.ep:{epoch:02d}-vloss:{val_loss:.4
     return loggers
 
 def main():
+    # Paramaters
     num_classes = 25
     batch_size = 64
     num_channels = 3
-    input_size = (299, 150)
+    input_size = (299, 150) # h x w
     epochs = 50
     learning_rate = 0.001
+
+    # Use 35% data for experiments due to speed issues
+    sample = 0.35
+    assert 0 < sample <= 1
+
+    # Number of feed workers (should be equal to the number of virtual CPU threads)
+    workers = 8
 
     # create the base pre-trained model
     # Keras will automatically download pre-trained weights if they are missing
@@ -98,11 +106,11 @@ def main():
                   metrics=['accuracy', top_3_acc])
 
     # train the model on the new data for a few epochs
-    # Use 35% data for experiments due to speed issues
-    sample = 0.35
     model.fit_generator(
             train_flow,
-            workers=8,
+            workers=workers,
+            max_queue_size=round(workers * 1.7), # tweak if needed
+            use_multiprocessing=False,
             steps_per_epoch=round((sample * train_flow.sample_size)) // batch_size,
             epochs=epochs,
             callbacks=get_callbacks(),
