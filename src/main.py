@@ -14,6 +14,16 @@ DATASET_ROOT_PATH = 'data/mozgalo_split'
 
 
 def preprocess_image(img):
+    """
+    TODO:
+    * Gaussian blur
+    * BG removal
+    * Crop
+    * Contrast
+    * Brightness
+    :param img:
+    :return:
+    """
     return img
     # img_array = img_to_array(img)
     # TODO: Preprocessing
@@ -104,7 +114,6 @@ def main():
     final_lr = 2e-5
     decay = ((1 / (final_lr / learning_rate)) - 1) / (
     round((sample * train_flow.samples)) // batch_size * epochs)
-    print("Decay", decay)
 
     optimizer = optimizers.RMSprop(lr=learning_rate,
                                    decay=decay)
