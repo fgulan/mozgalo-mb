@@ -1,25 +1,24 @@
 import os
 from datetime import datetime
 
-import numpy as np
 from keras import optimizers
 from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBoard
 from keras.models import Model
-from keras.utils import to_categorical
-from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
-from sklearn.model_selection import train_test_split
+from keras.preprocessing.image import ImageDataGenerator
 
 import utils
-from metrics import Metrics, top_3_acc
+from metrics import top_3_acc
 from model import XceptionModel
 
 DATASET_ROOT_PATH = 'data/mozgalo_split'
 
+
 def preprocess_image(img):
     return img
-    #img_array = img_to_array(img)
+    # img_array = img_to_array(img)
     # TODO: Preprocessing
-    #return array_to_img(img_array)
+    # return array_to_img(img_array)
+
 
 def get_callbacks(weights_file="models/weights_ep:{epoch:02d}-vloss:{val_loss:.4f}.hdf5",
                   save_epochs=1, patience=5, min_delta=0):
@@ -49,18 +48,19 @@ def get_callbacks(weights_file="models/weights_ep:{epoch:02d}-vloss:{val_loss:.4
 
     return loggers
 
+
 def main():
     # Paramaters
     num_classes = 25
     batch_size = 64
     num_channels = 3
-    input_size = (299, 150) # h x w
+    input_size = (299, 164)  # h x w
     epochs = 50
     learning_rate = 0.001
 
-    # Use 35% data for experiments due to speed issues
-    sample = 0.35
-    assert 0 < sample <= 1
+    # Use less data for faster experimenting
+    sample = 0.5
+    assert 0.0 < sample <= 1
 
     # Number of feed workers (should be equal to the number of virtual CPU threads)
     workers = 8
@@ -74,12 +74,12 @@ def main():
 
     # Create data generators
     train_datagen = ImageDataGenerator(preprocessing_function=preprocess_image,
-                                        samplewise_center=True,
-                                        samplewise_std_normalization=True,
-                                        rotation_range=7,
-                                        zoom_range=(0.8, 1.2),
-                                        width_shift_range=0.1,
-                                        height_shift_range=0.1)
+                                       samplewise_center=True,
+                                       samplewise_std_normalization=True,
+                                       rotation_range=7,
+                                       zoom_range=(0.8, 1.2),
+                                       width_shift_range=0.1,
+                                       height_shift_range=0.1)
 
     validation_datagen = ImageDataGenerator(preprocessing_function=preprocess_image,
                                             samplewise_center=True,
@@ -89,10 +89,10 @@ def main():
     # generate batches of augmented image data
     # target_size: tuple of integers (height, width)
     train_flow = train_datagen.flow_from_directory(
-            os.path.join(DATASET_ROOT_PATH, 'train'),
-            target_size=input_size,
-            batch_size=batch_size,
-            class_mode='categorical')
+        os.path.join(DATASET_ROOT_PATH, 'train'),
+        target_size=input_size,
+        batch_size=batch_size,
+        class_mode='categorical')
 
     validation_flow = validation_datagen.flow_from_directory(
         os.path.join(DATASET_ROOT_PATH, 'validation'),
@@ -100,23 +100,31 @@ def main():
         batch_size=batch_size,
         class_mode='categorical')
 
-    optimizer = optimizers.RMSprop(lr=learning_rate)
+    # Learning rate at the end of training
+    final_lr = 2e-5
+    decay = ((1 / (final_lr / learning_rate)) - 1) / (
+    round((sample * train_flow.samples)) // batch_size * epochs)
+    print("Decay", decay)
+
+    optimizer = optimizers.RMSprop(lr=learning_rate,
+                                   decay=decay)
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
                   metrics=['accuracy', top_3_acc])
 
     # train the model on the new data for a few epochs
     model.fit_generator(
-            train_flow,
-            workers=workers,
-            max_queue_size=round(workers * 1.7), # tweak if needed
-            use_multiprocessing=False,
-            steps_per_epoch=round((sample * train_flow.samples)) // batch_size,
-            epochs=epochs,
-            callbacks=get_callbacks(),
-            shuffle=True,
-            validation_data=validation_flow,
-            validation_steps=round((sample * validation_flow.samples)) // batch_size)
+        train_flow,
+        workers=workers,
+        max_queue_size=round(workers * 1.7),  # tweak if needed
+        use_multiprocessing=False,
+        steps_per_epoch=round((sample * train_flow.samples)) // batch_size,
+        epochs=epochs,
+        callbacks=get_callbacks(),
+        shuffle=True,
+        validation_data=validation_flow,
+        validation_steps=round((sample * validation_flow.samples)) // batch_size)
+
 
 if __name__ == "__main__":
     # Set seeds for reproducible results

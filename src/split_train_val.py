@@ -1,16 +1,17 @@
-
 """
 Splits the original dataset into training and validation datasets.
 """
 
+import argparse
 import os
-import numpy as np
 import random as rn
 from shutil import copyfile
 from shutil import rmtree
-import argparse
 
-def main(origin_folder, export_folder, val_size = 0.2):
+import numpy as np
+
+
+def main(origin_folder, export_folder, val_size=0.2):
     assert 0 <= val_size <= 1
 
     if not os.path.exists(export_folder):
@@ -27,7 +28,7 @@ def main(origin_folder, export_folder, val_size = 0.2):
         if not os.path.isdir(dir_path):
             continue
 
-        print("Now processing {} directory...". format(dir_name))
+        print("Now processing {} directory...".format(dir_name))
 
         # Sort and shuffle for consistency
         class_files = sorted(os.listdir(dir_path))
@@ -66,5 +67,5 @@ if __name__ == "__main__":
                         help='Validation dataset size. Must be in the [0-1] range.')
     args = parser.parse_args()
 
-    main(origin_folder = args.origin,
-            export_folder = args.export, val_size = args.val_size)
+    main(origin_folder=args.origin,
+         export_folder=args.export, val_size=args.val_size)
