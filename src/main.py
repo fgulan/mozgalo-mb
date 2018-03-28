@@ -61,15 +61,15 @@ def get_callbacks(weights_file="models/weights_ep:{epoch:02d}-vloss:{val_loss:.4
 
 def main():
     # Paramaters
-    num_classes = 25
-    batch_size = 64
+    num_classes = 26
+    batch_size = 48
     num_channels = 3
     input_size = (299, 164)  # h x w
-    epochs = 50
+    epochs = 30
     learning_rate = 0.001
 
     # Use less data for faster experimenting
-    sample = 0.5
+    sample = 1.0
     assert 0.0 < sample <= 1
 
     # Number of feed workers (should be equal to the number of virtual CPU threads)
@@ -129,7 +129,7 @@ def main():
         use_multiprocessing=False,
         steps_per_epoch=round((sample * train_flow.samples)) // batch_size,
         epochs=epochs,
-        callbacks=get_callbacks(),
+        callbacks=get_callbacks(patience=7),
         shuffle=True,
         validation_data=validation_flow,
         validation_steps=round((sample * validation_flow.samples)) // batch_size)
