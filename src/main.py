@@ -68,7 +68,7 @@ def main():
     num_classes = 25
     batch_size = 48
     num_channels = 3
-    input_size = (299, 164)  # h x w
+    input_size = (229, 261)  # h x w
     epochs = 30
     learning_rate = 0.001
 
