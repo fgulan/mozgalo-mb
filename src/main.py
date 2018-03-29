@@ -10,28 +10,33 @@ import utils
 from metrics import top_3_acc
 from model import XceptionModel
 
-DATASET_ROOT_PATH = 'data/mozgalo_split'
+from datetime import datetime
 
+from keras import optimizers
+from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBoard
+from keras.models import Model
+from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
+from cv2 import GaussianBlur
+import numpy as np
+import utils
+from metrics import top_3_acc
+from model import XceptionModel
 
-def preprocess_image(img):
-    """
-    TODO:
-    * Gaussian blur
-    * BG removal
-    * Crop
-    * Contrast
-    * Brightness
-    :param img:
-    :return:
-    """
-    return img
-    # img_array = img_to_array(img)
-    # TODO: Preprocessing
-    # return array_to_img(img_array)
+DATASET_ROOT_PATH = 'C:/Users/gulan_filip/dataset/'
 
+def crop_upper_part(image, percent=0.4):
+    height, _, _ = image.shape
+    point = int(percent * height)
+    return image[0:point,:]
 
-def get_callbacks(weights_file="models/weights_ep:{epoch:02d}-vloss:{val_loss:.4f}.hdf5",
-                  save_epochs=1, patience=5, min_delta=0):
+def preprocess_image(image):
+    img_array = img_to_array(image).astype(np.uint8)
+    img_array = GaussianBlur(img_array, (3, 3), 0)
+    img_array = crop_upper_part(img_array, 0.4)
+    return array_to_img(img_array)
+
+def get_callbacks(weights_file="weights_ep{epoch:02d}",
+                  save_epochs=1, patience=20, min_delta=0):
     """
 
     :param weights_file: string, path to save the model file.
@@ -46,22 +51,21 @@ def get_callbacks(weights_file="models/weights_ep:{epoch:02d}-vloss:{val_loss:.4
                                  verbose=1))
 
     loggers.append(ModelCheckpoint(weights_file, monitor='val_loss', verbose=1,
-                                   save_best_only=True, save_weights_only=False,
+                                   save_best_only=True, save_weights_only=True,
                                    period=save_epochs))
     loggers.append(BaseLogger())
 
     # Validation data is not available when using flow_from_directory
     # loggers.append(Metrics())
 
-    save_time = datetime.now().strftime('%d-%m-%Y_%H:%M:%S')
-    loggers.append(TensorBoard(log_dir=os.path.join("logs", save_time)))
+    save_time = datetime.now().strftime('%d%m%Y%H%M%S')
+    loggers.append(TensorBoard(log_dir=save_time))
 
     return loggers
 
-
 def main():
     # Paramaters
-    num_classes = 26
+    num_classes = 25
     batch_size = 48
     num_channels = 3
     input_size = (299, 164)  # h x w
