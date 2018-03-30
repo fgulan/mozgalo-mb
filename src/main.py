@@ -4,20 +4,10 @@ from datetime import datetime
 from keras import optimizers
 from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBoard
 from keras.models import Model
-from keras.preprocessing.image import ImageDataGenerator
-
-import utils
-from metrics import top_3_acc
-from model import XceptionModel
-
-from datetime import datetime
-
-from keras import optimizers
-from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBoard
-from keras.models import Model
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
 from cv2 import GaussianBlur
 import numpy as np
+
 import utils
 from metrics import top_3_acc
 from model import XceptionModel
@@ -122,7 +112,7 @@ def main():
     optimizer = optimizers.RMSprop(lr=learning_rate,
                                    decay=decay)
     model.compile(optimizer=optimizer,
-                  loss='categorical_crossentropy',
+                  loss='binary_crossentropy',
                   metrics=['accuracy', top_3_acc])
 
     # train the model on the new data for a few epochs
