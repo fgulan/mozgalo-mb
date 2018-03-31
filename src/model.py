@@ -19,7 +19,7 @@ def XceptionModel(input_shape, num_classes, weights="imagenet", include_top=Fals
     x = base_model.output
 
     x = GlobalAveragePooling2D()(x)
-    predictions = Dense(num_classes, activation='softmax')(x)
+    predictions = Dense(num_classes, activation='sigmoid')(x)
 
     return predictions, base_model
 
