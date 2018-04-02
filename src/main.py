@@ -6,23 +6,71 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBo
 from keras.models import Model
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
 from cv2 import GaussianBlur
+from keras.metrics import categorical_accuracy
 import numpy as np
 
 import utils
 from metrics import top_3_acc
 from model import XceptionModel
 
-DATASET_ROOT_PATH = 'C:/Users/gulan_filip/dataset/'
+DATASET_ROOT_PATH = 'data/mozgalo_split'
+
 
 def crop_upper_part(image, percent=0.4):
     height, _, _ = image.shape
     point = int(percent * height)
-    return image[0:point,:]
+    return image[:point, :]
 
-def preprocess_image(image):
+def random_crop(value, size):
+    """
+    Performs the random crop of the patch size size
+    """
+    h, w, _ = value.shape
+    top_x = np.random.randint(0, w - size[1])
+    top_y = np.random.randint(0, h - size[0])
+
+    return value[top_y:h+top_y, top_x: top_x+w, :]
+
+def random_erase(value):
+    """
+    Performs random erasing augmentation technique.
+    https://arxiv.org/pdf/1708.04896.pdf
+    """
+    h, w, _ = value.shape
+
+    r_width = np.random.randint(1, w)
+    r_height = np.random.randint(1, h)
+
+    top_x = np.random.randint(0, w - r_width)
+    top_y = np.random.randint(0, h - r_height)
+
+    value[top_y:r_height+top_y, top_x:top_x+r_width, :] = np.random.randint(0, 256, (r_height, r_width, 3))
+
+    return value
+
+def random_gauss_blur(image):
+    return GaussianBlur(image, (3, 3), 0)
+
+
+def preprocess_image_train(image):
     img_array = img_to_array(image).astype(np.uint8)
-    img_array = GaussianBlur(img_array, (3, 3), 0)
     img_array = crop_upper_part(img_array, 0.4)
+
+    if np.random.random() < 0.5:
+        img_array = random_crop(img_array, size=(229, 261))
+
+    if np.random.random() < 0.5:
+        img_array = random_gauss_blur(img_array)
+
+    if np.random.random() < 0.5:
+        img_array = random_erase(img_array)
+
+    return array_to_img(img_array)
+
+def preprocess_image_val(image):
+    img_array = img_to_array(image).astype(np.uint8)
+    img_array = crop_upper_part(img_array, 0.4)
+
     return array_to_img(img_array)
 
 def get_callbacks(weights_file="weights_ep{epoch:02d}",
@@ -49,14 +97,14 @@ def get_callbacks(weights_file="weights_ep{epoch:02d}",
     # loggers.append(Metrics())
 
     save_time = datetime.now().strftime('%d%m%Y%H%M%S')
-    loggers.append(TensorBoard(log_dir=save_time))
+    loggers.append(TensorBoard(log_dir=os.path.join("logs", save_time)))
 
     return loggers
 
 def main():
     # Paramaters
     num_classes = 25
-    batch_size = 48
+    batch_size = 32
     num_channels = 3
     input_size = (229, 261)  # h x w
     epochs = 30
@@ -77,15 +125,15 @@ def main():
     model = Model(inputs=base_model.input, outputs=predictions)
 
     # Create data generators
-    train_datagen = ImageDataGenerator(preprocessing_function=preprocess_image,
+    train_datagen = ImageDataGenerator(preprocessing_function=preprocess_image_train,
                                        samplewise_center=True,
                                        samplewise_std_normalization=True,
                                        rotation_range=7,
-                                       zoom_range=(0.8, 1.2),
+                                       zoom_range=(0.7, 1.2),
                                        width_shift_range=0.1,
                                        height_shift_range=0.1)
 
-    validation_datagen = ImageDataGenerator(preprocessing_function=preprocess_image,
+    validation_datagen = ImageDataGenerator(preprocessing_function=preprocess_image_val,
                                             samplewise_center=True,
                                             samplewise_std_normalization=True)
 
@@ -113,7 +161,7 @@ def main():
                                    decay=decay)
     model.compile(optimizer=optimizer,
                   loss='binary_crossentropy',
-                  metrics=['accuracy', top_3_acc])
+                  metrics=[categorical_accuracy, top_3_acc])
 
     # train the model on the new data for a few epochs
     model.fit_generator(
