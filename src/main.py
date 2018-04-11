@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+import pdb
 from keras import optimizers
 from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBoard
 from keras.models import Model
@@ -8,6 +9,7 @@ from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_a
 from cv2 import GaussianBlur
 from keras.metrics import categorical_accuracy
 import numpy as np
+import cv2
 
 import utils
 from metrics import top_3_acc
@@ -15,6 +17,22 @@ from model import XceptionModel
 
 DATASET_ROOT_PATH = 'data/mozgalo_split'
 
+def normalize(image):
+    image /= 255.
+    image -= 0.5
+
+    return image
+
+def resize(image, min_height = 550):
+    """
+    Resize the image so the maximum height is min_height
+    """
+    h, w, _ = image.shape
+
+    new_h = min(min_height, h)
+    new_w = int(new_h * w / h)
+
+    return cv2.resize(image, (new_w, new_h))
 
 def crop_upper_part(image, percent=0.4):
     height, _, _ = image.shape
@@ -38,13 +56,13 @@ def random_erase(value):
     """
     h, w, _ = value.shape
 
-    r_width = np.random.randint(1, w)
-    r_height = np.random.randint(1, h)
+    r_width = np.random.randint(20, w - 20)
+    r_height = np.random.randint(20, h - 20)
 
     top_x = np.random.randint(0, w - r_width)
     top_y = np.random.randint(0, h - r_height)
 
-    value[top_y:r_height+top_y, top_x:top_x+r_width, :] = np.random.randint(0, 256, (r_height, r_width, 3))
+    value[top_y:r_height+top_y, top_x:top_x+r_width, :] = np.mean(value)
 
     return value
 
@@ -53,23 +71,27 @@ def random_gauss_blur(image):
 
 
 def preprocess_image_train(image):
-    img_array = img_to_array(image).astype(np.uint8)
-    img_array = crop_upper_part(img_array, 0.4)
+    img_array = img_to_array(image).astype(np.float32)
+    img_array = resize(img_array)
+    img_array = crop_upper_part(img_array, 0.5)
 
-    if np.random.random() < 0.5:
-        img_array = random_crop(img_array, size=(229, 261))
+    # if np.random.random() < 0.5:
+    #    img_array = random_crop(img_array, size=(299, 164))
 
     if np.random.random() < 0.5:
         img_array = random_gauss_blur(img_array)
 
-    if np.random.random() < 0.5:
-        img_array = random_erase(img_array)
+    img_array = random_erase(img_array)
+    img_array = normalize(img_array)
 
     return array_to_img(img_array)
 
 def preprocess_image_val(image):
-    img_array = img_to_array(image).astype(np.uint8)
-    img_array = crop_upper_part(img_array, 0.4)
+    img_array = img_to_array(image).astype(np.float32)
+    img_array = resize(img_array)
+    img_array = crop_upper_part(img_array, 0.5)
+
+    img_array = normalize(img_array)
 
     return array_to_img(img_array)
 
@@ -104,11 +126,11 @@ def get_callbacks(weights_file="weights_ep{epoch:02d}",
 def main():
     # Paramaters
     num_classes = 25
-    batch_size = 32
+    batch_size = 16
     num_channels = 3
-    input_size = (229, 261)  # h x w
-    epochs = 30
-    learning_rate = 0.001
+    input_size = (400, 400)  # h x w
+    epochs = 40
+    learning_rate = 0.0005
 
     # Use less data for faster experimenting
     sample = 1.0
@@ -121,21 +143,28 @@ def main():
     # Keras will automatically download pre-trained weights if they are missing
     predictions, base_model = XceptionModel((*input_size, num_channels), num_classes)
 
+    # Freeze lower layers (lower = closer to the input layer)
+    # Freeze layers up the the last two blocks (13 and 14)
+    #for layer in base_model.layers[:50]:
+    #    layer.trainable = False
+
     # this is the model we will train
     model = Model(inputs=base_model.input, outputs=predictions)
 
+
     # Create data generators
     train_datagen = ImageDataGenerator(preprocessing_function=preprocess_image_train,
-                                       samplewise_center=True,
-                                       samplewise_std_normalization=True,
-                                       rotation_range=7,
-                                       zoom_range=(0.7, 1.2),
+                                       samplewise_center=False,
+                                       samplewise_std_normalization=False,
+                                       vertical_flip=True,
+                                       rotation_range=9,
+                                       zoom_range=(0.4, 1.2),
                                        width_shift_range=0.1,
                                        height_shift_range=0.1)
 
     validation_datagen = ImageDataGenerator(preprocessing_function=preprocess_image_val,
-                                            samplewise_center=True,
-                                            samplewise_std_normalization=True)
+                                            samplewise_center=False,
+                                            samplewise_std_normalization=False)
 
     # this is a generator that will and indefinitely
     # generate batches of augmented image data
