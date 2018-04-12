@@ -72,7 +72,7 @@ def random_gauss_blur(image):
 
 def preprocess_image_train(image):
     img_array = img_to_array(image).astype(np.float32)
-    img_array = resize(img_array)
+    #img_array = resize(img_array)
     img_array = crop_upper_part(img_array, 0.5)
 
     # if np.random.random() < 0.5:
@@ -88,14 +88,14 @@ def preprocess_image_train(image):
 
 def preprocess_image_val(image):
     img_array = img_to_array(image).astype(np.float32)
-    img_array = resize(img_array)
+    #img_array = resize(img_array)
     img_array = crop_upper_part(img_array, 0.5)
 
     img_array = normalize(img_array)
 
     return array_to_img(img_array)
 
-def get_callbacks(weights_file="weights_ep{epoch:02d}",
+def get_callbacks(weights_file=os.path.join("models", "weights_ep{epoch:02d}.hd5f"),
                   save_epochs=1, patience=20, min_delta=0):
     """
 
