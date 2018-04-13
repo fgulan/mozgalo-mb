@@ -84,7 +84,7 @@ def preprocess_image_train(image):
     img_array = random_erase(img_array)
     img_array = normalize(img_array)
 
-    return array_to_img(img_array)
+    return array_to_img(img_array, scale=False)
 
 def preprocess_image_val(image):
     img_array = img_to_array(image).astype(np.float32)
@@ -93,7 +93,7 @@ def preprocess_image_val(image):
 
     img_array = normalize(img_array)
 
-    return array_to_img(img_array)
+    return array_to_img(img_array, scale=False)
 
 def get_callbacks(weights_file=os.path.join("models", "weights_ep{epoch:02d}.hd5f"),
                   save_epochs=1, patience=20, min_delta=0):
