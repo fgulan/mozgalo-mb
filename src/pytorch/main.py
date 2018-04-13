@@ -1,43 +1,71 @@
 import argparse
 import os
 
+import numpy as np
 import torch
 from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm
-from torch.utils.data import DataLoader, sampler
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-import pretrainedmodels
 
-from model import LModel
+from pytorch.model import LModel
 
-DATASET_ROOT_PATH = '/Users/filipgulan/college/mb-dataset'
+DATASET_ROOT_PATH = 'data/mozgalo_split'
+CPU_CORES = 4
+BATCH_SIZE = 4
 
-def train(args):
-    model = LModel(margin=args.margin)
 
-    input_shape = model.model.input_size
-    data_transform = transforms.Compose([
+def random_erase(value):
+    """
+    Performs random erasing augmentation technique.
+    https://arxiv.org/pdf/1708.04896.pdf
+    """
+    h, w, _ = value.shape
+
+    r_width = np.random.randint(20, w - 20)
+    r_height = np.random.randint(20, h - 20)
+
+    top_x = np.random.randint(0, w - r_width)
+    top_y = np.random.randint(0, h - r_height)
+
+    value[top_y:r_height + top_y, top_x:top_x + r_width, :] = np.mean(value)
+
+    return value
+
+
+def data_transformations(model, input_shape):
+    return transforms.Compose([
         transforms.Resize((input_shape[1], input_shape[2])),
+        #transforms.RandomResizedCrop((input_shape[1], input_shape[2])),
+        transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8))),
         transforms.ToTensor(),
         transforms.Normalize(mean=model.model.mean,
                              std=model.model.std)
     ])
 
+
+def train(args):
+    model = LModel(margin=args.margin)
+
+    data_transform = data_transformations(model, model.model.input_size)
+
     train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
                                          transform=data_transform)
-    train_dataset_loader = torch.utils.data.DataLoader(train_dataset, 
-                                                       batch_size=4,
-                                                    #    shuffle=True,
-                                                       num_workers=4)
+    train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
+                                                       batch_size=BATCH_SIZE,
+                                                       shuffle=True,
+                                                       num_workers=CPU_CORES)
 
-    validation_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'validation'),
-                                              transform=data_transform)
-    validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset, 
-                                                            batch_size=16,
+    validation_dataset = datasets.ImageFolder(
+        root=os.path.join(DATASET_ROOT_PATH, 'validation'),
+        transform=data_transform)
+    validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
+                                                            batch_size=BATCH_SIZE,
                                                             shuffle=False,
-                                                            num_workers=4)
+                                                            num_workers=CPU_CORES)
 
     if args.gpu > -1:
         model.cuda(args.gpu)
@@ -71,11 +99,10 @@ def train(args):
         batch_count = len(train_dataset_loader)
         model.train()
         for i, train_batch in enumerate(train_dataset_loader):
-
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
             loss = criterion(input=logit, target=train_y)
-            
+
             optimizer.zero_grad()
             loss.backward()
             clip_grad_norm(model.parameters(), max_norm=10)
@@ -110,12 +137,13 @@ def train(args):
         lr_scheduler.step(accuracy)
         return loss, accuracy
 
+    """
     def test():
         model.eval()
         num_correct = denom = 0
         for test_batch in test_loader:
             test_x, test_y = (var(test_batch[0], volatile=True),
-                                var(test_batch[1], volatile=True))
+                              var(test_batch[1], volatile=True))
             logit = model(test_x)
             y_pred = logit.max(1)[1]
             num_correct += y_pred.eq(test_y).long().sum().data[0]
@@ -124,6 +152,7 @@ def train(args):
         summary_writer.add_scalar(tag='test_accuracy', scalar_value=accuracy,
                                   global_step=global_step)
         return accuracy
+    """
 
     best_valid_accuracy = 0
     for epoch in range(1, args.max_epoch + 1):
@@ -131,13 +160,13 @@ def train(args):
         valid_loss, valid_accuracy = validate()
         print(f'Epoch {epoch}: Valid loss = {valid_loss:.5f}')
         print(f'Epoch {epoch}: Valid accuracy = {valid_accuracy:.5f}')
-        test_accuracy = 0#test()
-        print(f'Epoch {epoch}: Test accuracy = {test_accuracy:.5f}')
+        # test_accuracy = 0#test()
+        # print(f'Epoch {epoch}: Test accuracy = {test_accuracy:.5f}')
         if valid_accuracy > best_valid_accuracy:
             model_filename = (f'{epoch:02d}'
                               f'-{valid_loss:.5f}'
-                              f'-{valid_accuracy:.5f}'
-                              f'-{test_accuracy:.5f}.pt')
+                              f'-{valid_accuracy:.5f}')
+            # f'-{test_accuracy:.5f}.pt')
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
             print(f'Epoch {epoch}: Saved the new best model to: {model_path}')
