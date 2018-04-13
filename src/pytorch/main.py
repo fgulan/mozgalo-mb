@@ -10,50 +10,41 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
+from pytorch.data import random_erase, crop_upper_part, normalize
 from pytorch.model import LModel
 
 DATASET_ROOT_PATH = 'data/mozgalo_split'
 CPU_CORES = 4
 BATCH_SIZE = 4
-
-
-def random_erase(value):
-    """
-    Performs random erasing augmentation technique.
-    https://arxiv.org/pdf/1708.04896.pdf
-    """
-    h, w, _ = value.shape
-
-    r_width = np.random.randint(20, w - 20)
-    r_height = np.random.randint(20, h - 20)
-
-    top_x = np.random.randint(0, w - r_width)
-    top_y = np.random.randint(0, h - r_height)
-
-    value[top_y:r_height + top_y, top_x:top_x + r_width, :] = np.mean(value)
-
-    return value
+NUM_CLASSES = 25
 
 
 def data_transformations(model, input_shape):
-    return transforms.Compose([
+    train_trans = transforms.Compose([
+        #transforms.Lambda(lambda x: crop_upper_part(np.array(x), 0.5)),
         transforms.Resize((input_shape[1], input_shape[2])),
-        #transforms.RandomResizedCrop((input_shape[1], input_shape[2])),
-        transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
-        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8))),
+        # transforms.RandomResizedCrop((input_shape[1], input_shape[2])),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.float32))),
+        transforms.Lambda(lambda x: normalize(x)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=model.model.mean,
-                             std=model.model.std)
     ])
+    val_trans = transforms.Compose([
+        #transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.float32), 0.5)),
+        transforms.Resize((input_shape[1], input_shape[2])),
+        transforms.Lambda(lambda x: normalize(x)),
+        transforms.ToTensor(),
+    ])
+    return train_trans, val_trans
 
 
 def train(args):
-    model = LModel(margin=args.margin)
+    model = LModel(margin=args.margin, num_classes=NUM_CLASSES)
 
-    data_transform = data_transformations(model, model.model.input_size)
+    train_transform, val_transform = data_transformations(model, model.model.input_size)
 
     train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
-                                         transform=data_transform)
+                                         transform=train_transform)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=BATCH_SIZE,
                                                        shuffle=True,
@@ -61,7 +52,7 @@ def train(args):
 
     validation_dataset = datasets.ImageFolder(
         root=os.path.join(DATASET_ROOT_PATH, 'validation'),
-        transform=data_transform)
+        transform=val_transform)
     validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
                                                             batch_size=BATCH_SIZE,
                                                             shuffle=False,
@@ -178,6 +169,7 @@ def main():
     parser.add_argument('--margin', default=1, type=int)
     parser.add_argument('--optimizer', default='adam')
     parser.add_argument('--max-epoch', default=50, type=int)
+    parser.add_argument('--fine-tune', default=True)
     parser.add_argument('--gpu', default=0, type=int)
     parser.add_argument('--save-dir', required=True)
     args = parser.parse_args()

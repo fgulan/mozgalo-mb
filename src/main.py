@@ -1,15 +1,14 @@
 import os
+from cv2 import GaussianBlur
 from datetime import datetime
 
-import pdb
+import cv2
+import numpy as np
 from keras import optimizers
 from keras.callbacks import EarlyStopping, ModelCheckpoint, BaseLogger, TensorBoard
-from keras.models import Model
-from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
-from cv2 import GaussianBlur
 from keras.metrics import categorical_accuracy
-import numpy as np
-import cv2
+from keras.models import Model
+from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array
 
 import utils
 from metrics import top_3_acc
