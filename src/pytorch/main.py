@@ -15,7 +15,7 @@ from model import LModel
 
 DATASET_ROOT_PATH = '/home/gulan_filip/mb-dataset/'
 CPU_CORES = 4
-BATCH_SIZE = 32
+BATCH_SIZE = 48
 NUM_CLASSES = 25
 
 def data_transformations(model, input_shape):
