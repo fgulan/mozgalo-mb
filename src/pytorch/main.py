@@ -14,8 +14,8 @@ from data import random_erase, crop_upper_part, normalize
 from model import LModel
 
 DATASET_ROOT_PATH = '/home/gulan_filip/mb-dataset/'
-CPU_CORES = 4
-BATCH_SIZE = 48
+CPU_CORES = 6
+BATCH_SIZE = 64
 NUM_CLASSES = 25
 
 def data_transformations(model, input_shape):
@@ -90,13 +90,16 @@ def train(args):
     def train_epoch():
         nonlocal global_step
         batch_count = len(train_dataset_loader)
-        loss_sum = 0
+        loss_sum = num_correct = 0
         model.train()
         for i, train_batch in enumerate(train_dataset_loader):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
+            y_pred = logit.max(1)[1]
             loss = criterion(input=logit, target=train_y)
             loss_sum += loss.data[0]
+
+            num_correct += y_pred.eq(train_y).long().sum().data[0]
 
             optimizer.zero_grad()
             loss.backward()
@@ -104,7 +107,7 @@ def train(args):
             optimizer.step()
             global_step += 1
 
-            print('Batch: {0}/{1}, avg batch loss: {2}'.format(i, batch_count, loss_sum/(i+1)),
+            print('Batch: {0}/{1}, avg batch loss: {2}; avg batch acc'.format(i, batch_count, loss_sum/(i+1), num_correct/(i+1)),
                   end='\r', flush=True)
 
             summary_writer.add_scalar(
