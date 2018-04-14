@@ -38,7 +38,7 @@ def data_transformations(model, input_shape):
 
 
 def train(args):
-    model = LModel(margin=args.margin, num_classes=NUM_CLASSES)
+    model = LModel(margin=args.margin, num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
 
     train_transform, val_transform = data_transformations(model, model.model.input_size)
 
@@ -170,7 +170,7 @@ def main():
     parser.add_argument('--margin', default=1, type=int)
     parser.add_argument('--optimizer', default='adam')
     parser.add_argument('--max-epoch', default=50, type=int)
-    parser.add_argument('--fine-tune', default=True)
+    parser.add_argument('--fine-tune', default=False)
     parser.add_argument('--gpu', default=0, type=int)
     parser.add_argument('--save-dir', required=True)
     args = parser.parse_args()
