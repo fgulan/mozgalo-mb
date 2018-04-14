@@ -30,7 +30,7 @@ def data_transformations(model, input_shape):
         transforms.ToTensor(),
     ])
     val_trans = transforms.Compose([
-        transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.float32), 0.5)),
+        transforms.Lambda(lambda x: crop_upper_part(np.array(x), 0.5)),
         transforms.ToPILImage(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.Lambda(lambda x: normalize(np.array(x, dtype=np.float32))),
