@@ -61,12 +61,13 @@ def train(args):
         model.cuda(args.gpu)
     criterion = nn.CrossEntropyLoss()
 
+    optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
-        optimizer = optim.SGD(params=model.parameters(), lr=0.1, momentum=0.9,
+        optimizer = optim.SGD(params=optim_params, lr=0.1, momentum=0.9,
                               weight_decay=0.0005)
         min_lr = 0.001
     elif args.optimizer == 'adam':
-        optimizer = optim.Adam(model.parameters(), weight_decay=0.0005)
+        optimizer = optim.Adam(optim_params, weight_decay=0.0005)
         min_lr = 0.00001
     else:
         raise ValueError('Unknown optimizer')
