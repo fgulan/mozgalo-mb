@@ -99,7 +99,8 @@ def train(args):
             loss = criterion(input=logit, target=train_y)
             loss_sum += loss.data[0]
 
-            num_correct += y_pred.eq(train_y).long().sum().data[0]
+            correct = y_pred.eq(train_y).long().sum().data[0]
+            num_correct += correct / len(train_y)
 
             optimizer.zero_grad()
             loss.backward()
