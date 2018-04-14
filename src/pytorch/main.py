@@ -108,7 +108,10 @@ def train(args):
             optimizer.step()
             global_step += 1
 
-            print('batch: {0}/{1} | loss: {2} | acc: {3}'.format(i, batch_count, loss_sum/(i+1), num_correct/(i+1)),
+            avg_loss = loss_sum/(i+1)
+            avg_acc = num_correct/(i+1)
+            
+            print(f'batch {i}/{batch_count} | loss = {avg_loss:.5f} | acc = {avg_acc:.5f}', 
                   end='\r', flush=True)
 
             summary_writer.add_scalar(
