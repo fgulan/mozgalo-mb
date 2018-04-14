@@ -38,9 +38,11 @@ def data_transformations(model, input_shape):
     ])
     return train_trans, val_trans
 
-
 def train(args):
+
     model = LModel(margin=args.margin, num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
+    if args.model != None:
+        model.load_state_dict(torch.load(args.model))
 
     train_transform, val_transform = data_transformations(model, model.model.input_size)
 
@@ -65,9 +67,9 @@ def train(args):
 
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
-        optimizer = optim.SGD(params=optim_params, lr=0.1, momentum=0.9,
+        optimizer = optim.SGD(params=optim_params, lr=0.001, momentum=0.9,
                               weight_decay=0.0005)
-        min_lr = 0.001
+        min_lr = 0.00001
     elif args.optimizer == 'adam':
         optimizer = optim.Adam(optim_params, weight_decay=0.0005)
         min_lr = 0.00001
@@ -110,7 +112,7 @@ def train(args):
 
             avg_loss = loss_sum/(i+1)
             avg_acc = num_correct/(i+1)
-            
+
             print(f'batch {i}/{batch_count} | loss = {avg_loss:.5f} | acc = {avg_acc:.5f}', 
                   end='\r', flush=True)
 
@@ -183,6 +185,7 @@ def main():
     parser.add_argument('--fine-tune', default=False)
     parser.add_argument('--gpu', default=0, type=int)
     parser.add_argument('--save-dir', required=True)
+    parser.add_argument('--model', default=None, required=False)
     args = parser.parse_args()
     train(args)
 
