@@ -10,14 +10,13 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from pytorch.data import random_erase, crop_upper_part, normalize
-from pytorch.model import LModel
+from data import random_erase, crop_upper_part, normalize
+from model import LModel
 
-DATASET_ROOT_PATH = 'data/mozgalo_split'
+DATASET_ROOT_PATH = '/home/gulan_filip/mb-dataset/'
 CPU_CORES = 4
-BATCH_SIZE = 4
+BATCH_SIZE = 32
 NUM_CLASSES = 25
-
 
 def data_transformations(model, input_shape):
     train_trans = transforms.Compose([
@@ -32,7 +31,7 @@ def data_transformations(model, input_shape):
     val_trans = transforms.Compose([
         #transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.float32), 0.5)),
         transforms.Resize((input_shape[1], input_shape[2])),
-        transforms.Lambda(lambda x: normalize(x)),
+        transforms.Lambda(lambda x: normalize(np.array(x, dtype=np.float32))),
         transforms.ToTensor(),
     ])
     return train_trans, val_trans
