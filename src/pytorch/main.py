@@ -21,6 +21,7 @@ NUM_CLASSES = 25
 def data_transformations(model, input_shape):
     train_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x), 0.5)),
+        transforms.ToPILImage(),
         transforms.Resize((input_shape[1], input_shape[2])),
         # transforms.RandomResizedCrop((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
@@ -30,6 +31,7 @@ def data_transformations(model, input_shape):
     ])
     val_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.float32), 0.5)),
+        transforms.ToPILImage(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.Lambda(lambda x: normalize(np.array(x, dtype=np.float32))),
         transforms.ToTensor(),
