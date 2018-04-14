@@ -14,8 +14,8 @@ from data import random_erase, crop_upper_part, normalize
 from model import LModel
 
 DATASET_ROOT_PATH = '/home/gulan_filip/mb-dataset/'
-CPU_CORES = 6
-BATCH_SIZE = 64
+CPU_CORES = 5
+BATCH_SIZE = 32
 NUM_CLASSES = 25
 
 def data_transformations(model, input_shape):
