@@ -87,11 +87,13 @@ def train(args):
     def train_epoch():
         nonlocal global_step
         batch_count = len(train_dataset_loader)
+        loss_sum = 0
         model.train()
         for i, train_batch in enumerate(train_dataset_loader):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
             loss = criterion(input=logit, target=train_y)
+            loss_sum += loss.data[0]
 
             optimizer.zero_grad()
             loss.backward()
@@ -99,7 +101,7 @@ def train(args):
             optimizer.step()
             global_step += 1
 
-            print('Batch: {0}/{1}, batch loss: {2}'.format(i, batch_count, loss.data[0]),
+            print('Batch: {0}/{1}, avg batch loss: {2}'.format(i, batch_count, loss_sum/(i+1)),
                   end='\r', flush=True)
 
             summary_writer.add_scalar(
