@@ -16,7 +16,7 @@ import utils
 from metrics import top_3_acc
 from model import XceptionModel, CustomModel
 
-DATASET_ROOT_PATH = 'data/mozgalo_split'
+DATASET_ROOT_PATH = '/Users/filipgulan/college/mb-dataset1/'
 
 def normalize(image):
     image /= 255.
@@ -127,7 +127,7 @@ def get_callbacks(weights_file=os.path.join("models", "weights_ep{epoch:02d}.hd5
 def train(args):
     # Paramaters
     num_classes = 25
-    batch_size = 16
+    batch_size = 2
     num_channels = 3
     input_size = (400, 400)  # h x w
     epochs = 40
@@ -208,7 +208,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', type=str, default=None)
     parser.add_argument('-w', '--weights', type=str, default=None)
-    parser.add_argument('-f', '--fine-tune', type=bool, default=False)
+    parser.add_argument('-f', '--fine-tune', type=utils.str2bool, default=False)
     args = parser.parse_args()
     
     train(args)

@@ -2,6 +2,7 @@
 Utility Functions
 """
 import os
+import argparse
 import random as rn
 
 import numpy as np
@@ -35,3 +36,11 @@ def set_random_seeds():
     np.random.seed(1337)
     rn.seed(69)
     tf.set_random_seed(42)
+
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')

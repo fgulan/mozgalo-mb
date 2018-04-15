@@ -96,5 +96,5 @@ def CustomModel(model_path, weights_path, fine_tune=False):
         layer.trainable = fine_tune
     
     model.layers[-1].trainable = True
-    
+
     return model
