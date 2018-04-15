@@ -187,6 +187,11 @@ def train(args):
                   loss='binary_crossentropy',
                   metrics=[categorical_accuracy, top_3_acc])
 
+    # Store model configuration
+    model_json = model.to_json()
+    with open(os.path.join("models", "model.json"), "w") as json_file:
+        json_file.write(model_json)
+
     # train the model on the new data for a few epochs
     model.fit_generator(
         train_flow,
