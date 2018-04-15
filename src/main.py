@@ -127,7 +127,7 @@ def get_callbacks(weights_file=os.path.join("models", "weights_ep{epoch:02d}.hd5
 def train(args):
     # Paramaters
     num_classes = 25
-    batch_size = 2
+    batch_size = 16
     num_channels = 3
     input_size = (400, 400)  # h x w
     epochs = 40
