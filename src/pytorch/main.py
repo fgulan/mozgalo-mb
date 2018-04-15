@@ -10,11 +10,11 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from data import random_erase, crop_upper_part, normalize
+from data import random_erase, crop_upper_part, normalize, to_grayscale
 from model import LModel
 
-DATASET_ROOT_PATH = '/home/gulan_filip/mb-dataset/'
-CPU_CORES = 5
+DATASET_ROOT_PATH = '../data/mozgalo_split'
+CPU_CORES = 8
 BATCH_SIZE = 32
 NUM_CLASSES = 25
 LEARNING_RATE = 0.001
@@ -31,14 +31,17 @@ def data_transformations(input_shape):
     train_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
         transforms.ToPILImage(),
+        transforms.RandomAffine(degrees=8, translate=(0.1, 0.1), scale=(0.4, 1.2)),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+        transforms.Grayscale(3),
         transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.float32))),
         transforms.Lambda(lambda x: normalize(x)),
         transforms.ToTensor(),
     ])
     val_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
+        transforms.Grayscale(3),
         transforms.ToPILImage(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.Lambda(lambda x: normalize(np.array(x, dtype=np.float32))),
@@ -50,8 +53,9 @@ def data_transformations(input_shape):
 def train(args):
     model = LModel(margin=args.margin, num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
 
-    if not args.model:
+    if args.model:
         model.load_state_dict(torch.load(args.model))
+        print("Loaded model from:", args.model)
 
     train_transform, val_transform = data_transformations(model.model.input_size)
 
@@ -86,7 +90,7 @@ def train(args):
         raise ValueError('Unknown optimizer')
 
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer, mode='max', factor=0.1, patience=5, verbose=True,
+        optimizer=optimizer, mode='max', factor=0.1, patience=3, verbose=True,
         min_lr=min_lr)
 
     summary_writer = SummaryWriter(os.path.join(args.save_dir, 'log'))
@@ -122,8 +126,8 @@ def train(args):
             avg_loss = loss_sum / (i + 1)
             avg_acc = num_correct / (i + 1)
 
-            print(f'batch {i}/{batch_count} | loss = {avg_loss:.5f} | acc = {avg_acc:.5f}',
-                  end='\r', flush=True)
+            print('batch {}/{} | loss = {:.5f} | acc = {:.5f}'.format(i, batch_count, avg_loss, avg_acc),
+                  end="\r", flush=True)
 
             summary_writer.add_scalar(
                 tag='train_loss', scalar_value=loss.data[0],
@@ -171,18 +175,18 @@ def train(args):
     for epoch in range(1, args.max_epoch + 1):
         train_epoch()
         valid_loss, valid_accuracy = validate()
-        print(f'Epoch {epoch}: Valid loss = {valid_loss:.5f}')
-        print(f'Epoch {epoch}: Valid accuracy = {valid_accuracy:.5f}')
+        print('Epoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
+        print('Epoch {}: Valid accuracy = {:.5f}'.format(epoch, valid_accuracy))
         # test_accuracy = 0#test()
         # print(f'Epoch {epoch}: Test accuracy = {test_accuracy:.5f}')
         if valid_accuracy > best_valid_accuracy:
-            model_filename = (f'{epoch:02d}'
-                              f'-{valid_loss:.5f}'
-                              f'-{valid_accuracy:.5f}')
+            model_filename = ('{:02d}'
+                              '-{:.5f}'
+                              '-{:.5f}'.format(epoch, valid_loss, valid_accuracy))
             # f'-{test_accuracy:.5f}.pt')
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
-            print(f'Epoch {epoch}: Saved the new best model to: {model_path}')
+            print('Epoch {}: Saved the new best model to: {}'.format(epoch, model_path))
             best_valid_accuracy = valid_accuracy
 
 
@@ -191,7 +195,8 @@ def main():
     parser.add_argument('--margin', default=1, type=int)
     parser.add_argument('--optimizer', default='adam')
     parser.add_argument('--max-epoch', default=50, type=int)
-    parser.add_argument('--fine-tune', default=False)
+    parser.add_argument('--fine-tune', dest="fine_tune", help="If true then the whole network is trained, otherwise only the top",
+            action="store_true")
     parser.add_argument('--gpu', default=0, type=int)
     parser.add_argument('--save-dir', required=True)
     parser.add_argument('--model', default=None, required=False)
