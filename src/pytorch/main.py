@@ -17,20 +17,28 @@ DATASET_ROOT_PATH = '/home/gulan_filip/mb-dataset/'
 CPU_CORES = 5
 BATCH_SIZE = 32
 NUM_CLASSES = 25
+LEARNING_RATE = 0.001
 
-def data_transformations(model, input_shape):
+
+def data_transformations(input_shape):
+    """
+
+    :param input_shape:
+    :return:
+    """
+    crop_perc = 0.5
+
     train_trans = transforms.Compose([
-        transforms.Lambda(lambda x: crop_upper_part(np.array(x), 0.5)),
+        transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
         transforms.ToPILImage(),
         transforms.Resize((input_shape[1], input_shape[2])),
-        # transforms.RandomResizedCrop((input_shape[1], input_shape[2])),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
         transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.float32))),
         transforms.Lambda(lambda x: normalize(x)),
         transforms.ToTensor(),
     ])
     val_trans = transforms.Compose([
-        transforms.Lambda(lambda x: crop_upper_part(np.array(x), 0.5)),
+        transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
         transforms.ToPILImage(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.Lambda(lambda x: normalize(np.array(x, dtype=np.float32))),
@@ -38,13 +46,14 @@ def data_transformations(model, input_shape):
     ])
     return train_trans, val_trans
 
-def train(args):
 
+def train(args):
     model = LModel(margin=args.margin, num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
-    if args.model != None:
+
+    if not args.model:
         model.load_state_dict(torch.load(args.model))
 
-    train_transform, val_transform = data_transformations(model, model.model.input_size)
+    train_transform, val_transform = data_transformations(model.model.input_size)
 
     train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
                                          transform=train_transform)
@@ -71,7 +80,7 @@ def train(args):
                               weight_decay=0.0005)
         min_lr = 0.00001
     elif args.optimizer == 'adam':
-        optimizer = optim.Adam(optim_params, weight_decay=0.0005)
+        optimizer = optim.Adam(optim_params, lr=LEARNING_RATE, weight_decay=0.0005)
         min_lr = 0.00001
     else:
         raise ValueError('Unknown optimizer')
@@ -110,10 +119,10 @@ def train(args):
             optimizer.step()
             global_step += 1
 
-            avg_loss = loss_sum/(i+1)
-            avg_acc = num_correct/(i+1)
+            avg_loss = loss_sum / (i + 1)
+            avg_acc = num_correct / (i + 1)
 
-            print(f'batch {i}/{batch_count} | loss = {avg_loss:.5f} | acc = {avg_acc:.5f}', 
+            print(f'batch {i}/{batch_count} | loss = {avg_loss:.5f} | acc = {avg_acc:.5f}',
                   end='\r', flush=True)
 
             summary_writer.add_scalar(

@@ -1,12 +1,12 @@
 import math
 
 import torch
+from scipy.special import binom
 from torch import nn
 from torch.autograd import Variable
-from scipy.special import binom
+
 
 class LSoftmaxLinear(nn.Module):
-
     def __init__(self, input_dim, output_dim, margin):
         super().__init__()
         self.input_dim = input_dim
@@ -43,9 +43,9 @@ class LSoftmaxLinear(nn.Module):
             norm_target_prod = weight_target_norm * input_norm
             # cos_target: (batch_size,)
             cos_target = logit_target / (norm_target_prod + 1e-10)
-            sin_sq_target = 1 - cos_target**2
+            sin_sq_target = 1 - cos_target ** 2
 
-            num_ns = self.margin//2 + 1
+            num_ns = self.margin // 2 + 1
             # coeffs, cos_powers, sin_sq_powers, signs: (num_ns,)
             coeffs = Variable(input.data.new(self.coeffs))
             cos_exps = Variable(input.data.new(self.cos_exps))
@@ -61,7 +61,7 @@ class LSoftmaxLinear(nn.Module):
             cosm = cosm_terms.sum(1)
             k = self.find_k(cos_target)
 
-            ls_target = norm_target_prod * (((-1)**k * cosm) - 2*k)
+            ls_target = norm_target_prod * (((-1) ** k * cosm) - 2 * k)
             logit[range(batch_size), target] = ls_target
             return logit
         else:
