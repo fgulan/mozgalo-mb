@@ -1,5 +1,4 @@
 import numpy as np
-import pdb
 
 def normalize(image):
     image /= 255.

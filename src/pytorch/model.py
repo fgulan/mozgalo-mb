@@ -1,7 +1,6 @@
 import pretrainedmodels
 import torch.nn.functional as F
 from torch import nn
-import pdb
 from lsoftmax import LSoftmaxLinear
 
 class LModel(nn.Module):
@@ -21,7 +20,7 @@ class LModel(nn.Module):
         self.net = nn.Sequential(*list(self.model.children())[:-1])
 
         if not fine_tune:
-            print("Locking base model layers")
+            print("Base model layers will NOT be trained")
             for param in self.net.parameters():
                 param.requires_grad = False
 
@@ -41,5 +40,4 @@ class LModel(nn.Module):
 
         batch_size = conv_output.size(0)
         #logit = self.lsoftmax_linear(input=global_pooling.view(batch_size, -1), target=target)
-        logit = self.logits(global_pooling.view(batch_size, -1))
-        return logit
+        return self.logits(global_pooling.view(batch_size, -1))

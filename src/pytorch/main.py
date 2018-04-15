@@ -171,35 +171,36 @@ def train(args):
         return accuracy
     """
 
-    best_valid_accuracy = 0
     for epoch in range(1, args.max_epoch + 1):
         train_epoch()
         valid_loss, valid_accuracy = validate()
+
+        if epoch == 1:
+            best_valid_loss = valid_loss
+
         print('Epoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
         print('Epoch {}: Valid accuracy = {:.5f}'.format(epoch, valid_accuracy))
-        # test_accuracy = 0#test()
-        # print(f'Epoch {epoch}: Test accuracy = {test_accuracy:.5f}')
-        if valid_accuracy > best_valid_accuracy:
-            model_filename = ('{:02d}'
-                              '-{:.5f}'
-                              '-{:.5f}'.format(epoch, valid_loss, valid_accuracy))
-            # f'-{test_accuracy:.5f}.pt')
+
+        if valid_loss <= best_valid_loss:
+            model_filename = ('epoch_{:02d}'
+                              '-valLoss_{:.5f}'
+                              '-valAcc_{:.5f}'.format(epoch, valid_loss, valid_accuracy))
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
             print('Epoch {}: Saved the new best model to: {}'.format(epoch, model_path))
-            best_valid_accuracy = valid_accuracy
+            best_valid_loss = valid_loss
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--margin', default=1, type=int)
+    parser.add_argument('--margin', help="Margin parameter from the LSoftmax paper", default=1, type=int)
     parser.add_argument('--optimizer', default='adam')
     parser.add_argument('--max-epoch', default=50, type=int)
     parser.add_argument('--fine-tune', dest="fine_tune", help="If true then the whole network is trained, otherwise only the top",
             action="store_true")
-    parser.add_argument('--gpu', default=0, type=int)
-    parser.add_argument('--save-dir', required=True)
-    parser.add_argument('--model', default=None, required=False)
+    parser.add_argument('--gpu', help="GPU use flag. 0 will use, -1 will not.", default=0, type=int)
+    parser.add_argument('--save-dir', help="Model saving folder", required=True)
+    parser.add_argument('--model', help="Path to the trained model file", default=None, required=False)
     args = parser.parse_args()
     train(args)
 
