@@ -16,7 +16,7 @@ from model import LModel
 DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
 BATCH_SIZE = 32
-NUM_CLASSES = 25
+NUM_CLASSES = 26
 LEARNING_RATE = 0.001
 
 
@@ -41,8 +41,8 @@ def data_transformations(input_shape):
     ])
     val_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
-        transforms.Grayscale(3),
         transforms.ToPILImage(),
+        transforms.Grayscale(3),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.Lambda(lambda x: normalize(np.array(x, dtype=np.float32))),
         transforms.ToTensor(),
