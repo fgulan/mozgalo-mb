@@ -1,4 +1,5 @@
 import os
+import argparse
 from datetime import datetime
 
 import pdb
@@ -13,7 +14,7 @@ import cv2
 
 import utils
 from metrics import top_3_acc
-from model import XceptionModel
+from model import XceptionModel, CustomModel
 
 DATASET_ROOT_PATH = 'data/mozgalo_split'
 
@@ -123,7 +124,7 @@ def get_callbacks(weights_file=os.path.join("models", "weights_ep{epoch:02d}.hd5
 
     return loggers
 
-def main():
+def train(args):
     # Paramaters
     num_classes = 25
     batch_size = 16
@@ -139,24 +140,18 @@ def main():
     # Number of feed workers (should be equal to the number of virtual CPU threads)
     workers = 8
 
-    # create the base pre-trained model
-    # Keras will automatically download pre-trained weights if they are missing
-    predictions, base_model = XceptionModel((*input_size, num_channels), num_classes)
-
-    # Freeze lower layers (lower = closer to the input layer)
-    # Freeze layers up the the last two blocks (13 and 14)
-    #for layer in base_model.layers[:50]:
-    #    layer.trainable = False
-
-    # this is the model we will train
-    model = Model(inputs=base_model.input, outputs=predictions)
-
+    if args.model != None and args.weights != None:
+        model = CustomModel(args.model, args.weights, fine_tune=args.fine_tune)
+    else:
+        predictions, base_model = XceptionModel((*input_size, num_channels), 
+                                                num_classes, fine_tune=args.fine_tune)
+        # this is the model we will train
+        model = Model(inputs=base_model.input, outputs=predictions)
 
     # Create data generators
     train_datagen = ImageDataGenerator(preprocessing_function=preprocess_image_train,
                                        samplewise_center=False,
                                        samplewise_std_normalization=False,
-                                       vertical_flip=True,
                                        rotation_range=9,
                                        zoom_range=(0.4, 1.2),
                                        width_shift_range=0.1,
@@ -206,7 +201,17 @@ def main():
         validation_steps=round((sample * validation_flow.samples)) // batch_size)
 
 
-if __name__ == "__main__":
+def main():
     # Set seeds for reproducible results
     utils.set_random_seeds()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-m', '--model', type=str, default=None)
+    parser.add_argument('-w', '--weights', type=str, default=None)
+    parser.add_argument('-f', '--fine-tune', type=bool, default=False)
+    args = parser.parse_args()
+    
+    train(args)
+
+if __name__ == '__main__':
     main()
