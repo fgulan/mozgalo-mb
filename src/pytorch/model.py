@@ -1,7 +1,6 @@
 import pretrainedmodels
 import torch.nn.functional as F
 from torch import nn
-from lsoftmax import LSoftmaxLinear
 
 class LModel(nn.Module):
     def __init__(self, margin, num_classes, fine_tune=True):
