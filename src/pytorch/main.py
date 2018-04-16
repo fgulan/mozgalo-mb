@@ -8,14 +8,14 @@ from torch import nn, optim
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
+from torchvision import transforms
 
-from data import random_erase, crop_upper_part, normalize
-from model import LModel
+from data import random_erase, crop_upper_part, HingeDataset
+from model import HingeModel
 
 DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
-BATCH_SIZE = 32
+BATCH_SIZE = 4
 NUM_CLASSES = 25
 LEARNING_RATE = 0.001
 
@@ -37,22 +37,20 @@ def data_transformations(input_shape):
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
         transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.float32))),
-        transforms.Lambda(lambda x: normalize(x)),
-        transforms.ToTensor(),
+        transforms.ToTensor()
     ])
     val_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
         transforms.ToPILImage(),
         transforms.Grayscale(3),
         transforms.Resize((input_shape[1], input_shape[2])),
-        transforms.Lambda(lambda x: normalize(np.array(x, dtype=np.float32))),
-        transforms.ToTensor(),
+        transforms.ToTensor()
     ])
     return train_trans, val_trans
 
 
 def train(args):
-    model = LModel(margin=args.margin, num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
+    model = HingeModel(fine_tune=args.fine_tune)
 
     if args.model:
         model.load_state_dict(torch.load(args.model))
@@ -60,16 +58,17 @@ def train(args):
 
     train_transform, val_transform = data_transformations(model.model.input_size)
 
-    train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
-                                         transform=train_transform)
+    # Train dataset
+    train_dataset = HingeDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
+                                 transform=train_transform)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=BATCH_SIZE,
                                                        shuffle=True,
                                                        num_workers=CPU_CORES)
 
-    validation_dataset = datasets.ImageFolder(
-        root=os.path.join(DATASET_ROOT_PATH, 'validation'),
-        transform=val_transform)
+    # Validation dataset
+    validation_dataset = HingeDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
+                                      transform=val_transform)
     validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
                                                             batch_size=BATCH_SIZE,
                                                             shuffle=False,
@@ -77,7 +76,7 @@ def train(args):
 
     if args.gpu > -1:
         model.cuda(args.gpu)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.HingeEmbeddingLoss(margin=1.5)
 
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
@@ -111,12 +110,12 @@ def train(args):
         for i, train_batch in enumerate(train_dataset_loader):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
-            y_pred = logit.max(1)[1]
+            # y_pred = logit.max(1)[1]
             loss = criterion(input=logit, target=train_y)
             loss_sum += loss.data[0]
 
-            correct = y_pred.eq(train_y).long().sum().data[0]
-            num_correct += correct / len(train_y)
+            # correct = y_pred.eq(train_y).long().sum().data[0]
+            # num_correct += correct / len(train_y)
 
             optimizer.zero_grad()
             loss.backward()
@@ -125,10 +124,9 @@ def train(args):
             global_step += 1
 
             avg_loss = loss_sum / (i + 1)
-            avg_acc = num_correct / (i + 1)
+            # avg_acc = num_correct / (i + 1)
 
-            print('batch {}/{} | loss = {:.5f} | acc = {:.5f}'.format(i, batch_count, avg_loss,
-                                                                      avg_acc),
+            print('batch {}/{} | loss = {:.5f}'.format(i, batch_count, avg_loss),
                   end="\r", flush=True)
 
             summary_writer.add_scalar(
@@ -142,19 +140,20 @@ def train(args):
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit = model(valid_x)
-            y_pred = logit.max(1)[1]
+            # y_pred = logit.max(1)[1]
             loss = criterion(input=logit, target=valid_y)
             loss_sum += loss.data[0] * valid_x.size(0)
-            num_correct += y_pred.eq(valid_y).long().sum().data[0]
-            denom += valid_x.size(0)
+            # num_correct += y_pred.eq(valid_y).long().sum().data[0]
+            # denom += valid_x.size(0)
         loss = loss_sum / denom
-        accuracy = num_correct / denom
+        # accuracy = num_correct / denom
         summary_writer.add_scalar(tag='valid_loss', scalar_value=loss,
                                   global_step=global_step)
-        summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
-                                  global_step=global_step)
-        lr_scheduler.step(accuracy)
-        return loss, accuracy
+        # summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
+        #                           global_step=global_step)
+        # lr_scheduler.step(accuracy)
+        # TODO Add accuracy
+        return loss, None
 
     for epoch in range(1, args.max_epoch + 1):
         train_epoch()
