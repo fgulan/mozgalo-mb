@@ -10,13 +10,13 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from data import random_erase, crop_upper_part, normalize, to_grayscale
+from data import random_erase, crop_upper_part, normalize
 from model import LModel
 
 DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
 BATCH_SIZE = 32
-NUM_CLASSES = 26
+NUM_CLASSES = 25
 LEARNING_RATE = 0.001
 
 
@@ -31,9 +31,10 @@ def data_transformations(input_shape):
     train_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
         transforms.ToPILImage(),
-        transforms.RandomAffine(degrees=8, translate=(0.1, 0.1), scale=(0.4, 1.2)),
+        # Requires the master branch of the torchvision package
+        transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.2)),
         transforms.Resize((input_shape[1], input_shape[2])),
-        transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+        transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
         transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.float32))),
         transforms.Lambda(lambda x: normalize(x)),
@@ -90,7 +91,7 @@ def train(args):
         raise ValueError('Unknown optimizer')
 
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer, mode='max', factor=0.1, patience=3, verbose=True,
+        optimizer=optimizer, mode='max', factor=0.1, patience=2, verbose=True,
         min_lr=min_lr)
 
     summary_writer = SummaryWriter(os.path.join(args.save_dir, 'log'))
@@ -126,7 +127,8 @@ def train(args):
             avg_loss = loss_sum / (i + 1)
             avg_acc = num_correct / (i + 1)
 
-            print('batch {}/{} | loss = {:.5f} | acc = {:.5f}'.format(i, batch_count, avg_loss, avg_acc),
+            print('batch {}/{} | loss = {:.5f} | acc = {:.5f}'.format(i, batch_count, avg_loss,
+                                                                      avg_acc),
                   end="\r", flush=True)
 
             summary_writer.add_scalar(
@@ -154,23 +156,6 @@ def train(args):
         lr_scheduler.step(accuracy)
         return loss, accuracy
 
-    """
-    def test():
-        model.eval()
-        num_correct = denom = 0
-        for test_batch in test_loader:
-            test_x, test_y = (var(test_batch[0], volatile=True),
-                              var(test_batch[1], volatile=True))
-            logit = model(test_x)
-            y_pred = logit.max(1)[1]
-            num_correct += y_pred.eq(test_y).long().sum().data[0]
-            denom += test_x.size(0)
-        accuracy = num_correct / denom
-        summary_writer.add_scalar(tag='test_accuracy', scalar_value=accuracy,
-                                  global_step=global_step)
-        return accuracy
-    """
-
     for epoch in range(1, args.max_epoch + 1):
         train_epoch()
         valid_loss, valid_accuracy = validate()
@@ -193,14 +178,18 @@ def train(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--margin', help="Margin parameter from the LSoftmax paper", default=1, type=int)
+    parser.add_argument('--margin', help="Margin parameter from the LSoftmax paper", default=1,
+                        type=int)
     parser.add_argument('--optimizer', default='adam')
     parser.add_argument('--max-epoch', default=50, type=int)
-    parser.add_argument('--fine-tune', dest="fine_tune", help="If true then the whole network is trained, otherwise only the top",
-            action="store_true")
-    parser.add_argument('--gpu', help="GPU use flag. 0 will use, -1 will not.", default=0, type=int)
+    parser.add_argument('--fine-tune', dest="fine_tune",
+                        help="If true then the whole network is trained, otherwise only the top",
+                        action="store_true")
+    parser.add_argument('--gpu', help="GPU use flag. 0 will use, -1 will not.", default=0,
+                        type=int)
     parser.add_argument('--save-dir', help="Model saving folder", required=True)
-    parser.add_argument('--model', help="Path to the trained model file", default=None, required=False)
+    parser.add_argument('--model', help="Path to the trained model file", default=None,
+                        required=False)
     args = parser.parse_args()
     train(args)
 
