@@ -64,7 +64,8 @@ def train(args):
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=BATCH_SIZE,
                                                        shuffle=True,
-                                                       num_workers=CPU_CORES)
+                                                       num_workers=CPU_CORES,
+                                                       pin_memory=True)
 
     # Validation dataset
     validation_dataset = HingeDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
@@ -72,6 +73,7 @@ def train(args):
     validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
                                                             batch_size=BATCH_SIZE,
                                                             shuffle=False,
+                                                            pin_memory=True,
                                                             num_workers=CPU_CORES)
 
     if args.gpu > -1:
