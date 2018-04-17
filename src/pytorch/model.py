@@ -72,4 +72,4 @@ class HingeModel(nn.Module):
         global_pooling = F.avg_pool2d(conv_output, avg_kernel_size)
 
         batch_size = conv_output.size(0)
-        return F.tanh(self.logits(global_pooling.view(batch_size, -1)))
+        return self.logits(global_pooling.view(batch_size, -1))

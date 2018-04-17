@@ -73,7 +73,7 @@ class HingeDataset(Dataset):
         if img_name in self.pos_images:
             label = np.array([1], dtype=np.float32)
         else:
-            label = np.array([-1], dtype=np.float32)
+            label = np.array([0], dtype=np.float32)
 
         if self.transform:
             image = self.transform(image)

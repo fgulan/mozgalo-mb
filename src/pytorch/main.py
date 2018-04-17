@@ -10,12 +10,13 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
+import torch.nn.functional as F
 from data import random_erase, crop_upper_part, HingeDataset
 from model import HingeModel
 
 DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
-BATCH_SIZE = 4
+BATCH_SIZE = 32
 NUM_CLASSES = 25
 LEARNING_RATE = 0.001
 
@@ -33,6 +34,7 @@ def data_transformations(input_shape):
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.2)),
+        transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
@@ -78,16 +80,15 @@ def train(args):
 
     if args.gpu > -1:
         model.cuda(args.gpu)
-    criterion = nn.SoftMarginLoss()
+    criterion = nn.BCEWithLogitsLoss()
 
+    min_lr = 0.000001
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
         optimizer = optim.SGD(params=optim_params, lr=0.001, momentum=0.9,
                               weight_decay=0.0005)
-        min_lr = 0.00001
     elif args.optimizer == 'adam':
         optimizer = optim.Adam(optim_params, lr=LEARNING_RATE, weight_decay=0.0005)
-        min_lr = 0.00001
     else:
         raise ValueError('Unknown optimizer')
 
@@ -112,7 +113,7 @@ def train(args):
         for i, train_batch in enumerate(train_dataset_loader):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
-            y_pred = logit.sign()
+            y_pred = F.sigmoid(logit).round()
             loss = criterion(input=logit, target=train_y)
             loss_sum += loss.data[0]
 
@@ -143,7 +144,7 @@ def train(args):
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit = model(valid_x)
-            y_pred = logit.sign()
+            y_pred = F.sigmoid(logit).round()
             loss = criterion(input=logit, target=valid_y)
             loss_sum += loss.data[0] * valid_x.size(0)
             num_correct += y_pred.eq(valid_y).long().sum().data[0]
