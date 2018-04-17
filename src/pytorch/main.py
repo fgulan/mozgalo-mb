@@ -76,7 +76,7 @@ def train(args):
 
     if args.gpu > -1:
         model.cuda(args.gpu)
-    criterion = nn.HingeEmbeddingLoss(margin=1.5)
+    criterion = nn.SoftMarginLoss()
 
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
@@ -110,7 +110,7 @@ def train(args):
         for i, train_batch in enumerate(train_dataset_loader):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
-            y_pred = logit.sign().mul(-1)
+            y_pred = logit.sign()
             loss = criterion(input=logit, target=train_y)
             loss_sum += loss.data[0]
 
@@ -141,7 +141,7 @@ def train(args):
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit = model(valid_x)
-            y_pred = logit.sign().mul(-1)
+            y_pred = logit.sign()
             loss = criterion(input=logit, target=valid_y)
             loss_sum += loss.data[0] * valid_x.size(0)
             num_correct += y_pred.eq(valid_y).long().sum().data[0]

@@ -71,9 +71,9 @@ class HingeDataset(Dataset):
             image = Image.open(f).convert("RGB")
 
         if img_name in self.pos_images:
-            label = np.array([-1], dtype=np.float32)
-        else:
             label = np.array([1], dtype=np.float32)
+        else:
+            label = np.array([-1], dtype=np.float32)
 
         if self.transform:
             image = self.transform(image)
