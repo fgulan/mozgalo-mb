@@ -110,12 +110,12 @@ def train(args):
         for i, train_batch in enumerate(train_dataset_loader):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
-            # y_pred = logit.max(1)[1]
+            y_pred = logit.sign().mul(-1)
             loss = criterion(input=logit, target=train_y)
             loss_sum += loss.data[0]
 
-            # correct = y_pred.eq(train_y).long().sum().data[0]
-            # num_correct += correct / len(train_y)
+            correct = y_pred.eq(train_y).long().sum().data[0]
+            num_correct += correct / len(train_y)
 
             optimizer.zero_grad()
             loss.backward()
@@ -124,9 +124,10 @@ def train(args):
             global_step += 1
 
             avg_loss = loss_sum / (i + 1)
-            # avg_acc = num_correct / (i + 1)
+            avg_acc = num_correct / (i + 1)
 
-            print('batch {}/{} | loss = {:.5f}'.format(i, batch_count, avg_loss),
+            print('batch {}/{} | loss = {:.5f} | accuracy = {:.5f}'.format(i, batch_count,
+                                                                           avg_loss, avg_acc),
                   end="\r", flush=True)
 
             summary_writer.add_scalar(
@@ -140,20 +141,19 @@ def train(args):
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit = model(valid_x)
-            # y_pred = logit.max(1)[1]
+            y_pred = logit.sign().mul(-1)
             loss = criterion(input=logit, target=valid_y)
             loss_sum += loss.data[0] * valid_x.size(0)
-            # num_correct += y_pred.eq(valid_y).long().sum().data[0]
-            # denom += valid_x.size(0)
+            num_correct += y_pred.eq(valid_y).long().sum().data[0]
+            denom += valid_x.size(0)
         loss = loss_sum / denom
-        # accuracy = num_correct / denom
+        accuracy = num_correct / denom
         summary_writer.add_scalar(tag='valid_loss', scalar_value=loss,
                                   global_step=global_step)
-        # summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
-        #                           global_step=global_step)
-        # lr_scheduler.step(accuracy)
-        # TODO Add accuracy
-        return loss, None
+        summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
+                                  global_step=global_step)
+        lr_scheduler.step(accuracy)
+        return loss, accuracy
 
     for epoch in range(1, args.max_epoch + 1):
         train_epoch()
