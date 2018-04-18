@@ -8,19 +8,19 @@ from torch import nn, optim
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
-from torchvision import transforms
+from torchvision import transforms, datasets
 
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 import torch.nn.functional as F
-from data import random_erase, crop_upper_part, HingeDataset
-from model import HingeModel
+from data import random_erase, crop_upper_part
+from model import XCeptionModel
 
 DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
 BATCH_SIZE = 32
 NUM_CLASSES = 25
-LEARNING_RATE = 1e-5
+LEARNING_RATE = 1e-3
 
 
 def data_transformations(input_shape):
@@ -36,7 +36,7 @@ def data_transformations(input_shape):
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.2)),
-        transforms.RandomHorizontalFlip(),
+        # transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
@@ -54,7 +54,7 @@ def data_transformations(input_shape):
 
 
 def train(args):
-    model = HingeModel(fine_tune=args.fine_tune)
+    model = XCeptionModel(num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
 
     if args.model:
         model.load_state_dict(torch.load(args.model))
@@ -63,8 +63,10 @@ def train(args):
     train_transform, val_transform = data_transformations(model.model.input_size)
 
     # Train dataset
-    train_dataset = HingeDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
-                                 transform=train_transform)
+    # train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
+    #                               transform=train_transform)
+    train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
+                                         transform=train_transform)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=BATCH_SIZE,
                                                        shuffle=True,
@@ -72,8 +74,12 @@ def train(args):
                                                        pin_memory=True)
 
     # Validation dataset
-    validation_dataset = HingeDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
-                                      transform=val_transform)
+    # validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH,
+    #                                                            'validation'),
+    #                                    transform=val_transform)
+    validation_dataset = datasets.ImageFolder(
+        root=os.path.join(DATASET_ROOT_PATH, 'validation'),
+        transform=val_transform)
     validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
                                                             batch_size=BATCH_SIZE,
                                                             shuffle=False,
@@ -82,7 +88,7 @@ def train(args):
 
     if args.gpu > -1:
         model.cuda(args.gpu)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.CrossEntropyLoss()
 
     min_lr = 0.000001
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
@@ -115,7 +121,8 @@ def train(args):
         for i, train_batch in enumerate(train_dataset_loader):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
-            y_pred = F.sigmoid(logit).round()
+            y_pred = logit.max(1)[1]
+
             loss = criterion(input=logit, target=train_y)
             loss_sum += loss.data[0]
 
@@ -149,7 +156,7 @@ def train(args):
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit = model(valid_x)
-            y_pred = F.sigmoid(logit).round()
+            y_pred = logit.max(1)[1]
             loss = criterion(input=logit, target=valid_y)
 
             for act in y_pred.cpu().data.numpy():
