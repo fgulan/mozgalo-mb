@@ -93,7 +93,7 @@ def train(args):
     min_lr = 0.000001
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
-        optimizer = optim.SGD(params=optim_params, lr=0.001, momentum=0.9,
+        optimizer = optim.SGD(params=optim_params, lr=LEARNING_RATE, momentum=0.9,
                               weight_decay=0.0005)
     elif args.optimizer == 'adam':
         optimizer = optim.Adam(optim_params, lr=LEARNING_RATE, weight_decay=0.0005)
