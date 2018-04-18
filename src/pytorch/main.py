@@ -20,7 +20,7 @@ DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
 BATCH_SIZE = 32
 NUM_CLASSES = 25
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 1e-4
 
 
 def data_transformations(input_shape):
