@@ -44,7 +44,10 @@ def random_erase(value):
     return value
 
 
-class HingeDataset(Dataset):
+class BinaryDataset(Dataset):
+    """
+    Binary dataset where classes are Other or Non-Other.
+    """
     def __init__(self, images_dir, other_folder_name="Other", transform=None):
         positive_folders = [os.path.join(images_dir, folder) for folder in os.listdir(
             images_dir) if folder != other_folder_name]
