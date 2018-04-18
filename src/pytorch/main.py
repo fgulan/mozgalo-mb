@@ -10,6 +10,8 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
+from sklearn.metrics import f1_score, precision_score, recall_score
+
 import torch.nn.functional as F
 from data import random_erase, crop_upper_part, HingeDataset
 from model import HingeModel
@@ -18,7 +20,7 @@ DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
 BATCH_SIZE = 32
 NUM_CLASSES = 25
-LEARNING_RATE = 0.001
+LEARNING_RATE = 1e-5
 
 
 def data_transformations(input_shape):
@@ -129,7 +131,7 @@ def train(args):
             avg_loss = loss_sum / (i + 1)
             avg_acc = num_correct / (i + 1)
 
-            print('batch {}/{} | loss = {:.5f} | accuracy = {:.5f}'.format(i, batch_count,
+            print('batch {}/{} | loss = {:.5f} | accuracy = {:.5f}'.format(i+1, batch_count,
                                                                            avg_loss, avg_acc),
                   end="\r", flush=True)
 
@@ -140,33 +142,53 @@ def train(args):
     def validate():
         model.eval()
         loss_sum = num_correct = denom = 0
+        predicted, gt = [], []
+
+        print("Starting validation")
         for valid_batch in validation_dataset_loader:
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit = model(valid_x)
             y_pred = F.sigmoid(logit).round()
             loss = criterion(input=logit, target=valid_y)
+
+            for act in y_pred.cpu().data.numpy():
+                predicted.append(act)
+            gt.extend(valid_y.cpu().data.numpy())
+
             loss_sum += loss.data[0] * valid_x.size(0)
             num_correct += y_pred.eq(valid_y).long().sum().data[0]
             denom += valid_x.size(0)
+
         loss = loss_sum / denom
         accuracy = num_correct / denom
         summary_writer.add_scalar(tag='valid_loss', scalar_value=loss,
                                   global_step=global_step)
         summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
                                   global_step=global_step)
+
         lr_scheduler.step(accuracy)
-        return loss, accuracy
+        gt = np.array(gt).flatten()
+        predicted = np.array(predicted)
+
+        f1 = f1_score(gt, predicted, average='macro')
+        prec = precision_score(gt, predicted, average='macro')
+        rec = recall_score(gt, predicted, average='macro')
+
+        return loss, accuracy, f1, prec, rec
 
     for epoch in range(1, args.max_epoch + 1):
         train_epoch()
-        valid_loss, valid_accuracy = validate()
+        valid_loss, valid_accuracy, f1_val, prec_val, rec_val = validate()
 
         if epoch == 1:
             best_valid_loss = valid_loss
 
-        print('Epoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
+        print('\nEpoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
         print('Epoch {}: Valid accuracy = {:.5f}'.format(epoch, valid_accuracy))
+        print('Epoch {}: Valid f1 = {:.5f}'.format(epoch, f1_val))
+        print('Epoch {}: Valid precision = {:.5f}'.format(epoch, prec_val))
+        print('Epoch {}: Valid recall = {:.5f}\n'.format(epoch, rec_val))
 
         if valid_loss <= best_valid_loss:
             model_filename = ('epoch_{:02d}'

@@ -53,10 +53,10 @@ class HingeDataset(Dataset):
         self.pos_images = []
         for pos_f in positive_folders:
             self.pos_images.extend([os.path.join(pos_f, img) for img in
-                                    os.listdir(pos_f)])
+                                    os.listdir(pos_f) if not img.startswith(".")])
 
         self.neg_images = [os.path.join(negative_folder, img) for img in
-                           os.listdir(negative_folder)]
+                           os.listdir(negative_folder) if not img.startswith(".")]
 
         self.im_paths = self.pos_images + self.neg_images
         self.transform = transform
