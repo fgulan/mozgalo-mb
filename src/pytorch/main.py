@@ -8,16 +8,19 @@ from torch import nn, optim
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
+from torchvision import transforms, datasets
 
-from data import random_erase, crop_upper_part, normalize
-from model import LModel
+from sklearn.metrics import f1_score, precision_score, recall_score
+
+import torch.nn.functional as F
+from data import random_erase, crop_upper_part
+from model import XCeptionModel
 
 DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
 BATCH_SIZE = 32
 NUM_CLASSES = 25
-LEARNING_RATE = 0.001
+LEARNING_RATE = 1e-4
 
 
 def data_transformations(input_shape):
@@ -29,30 +32,29 @@ def data_transformations(input_shape):
     crop_perc = 0.5
 
     train_trans = transforms.Compose([
-        transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
+        transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.2)),
+        # transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
-        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.float32))),
-        transforms.Lambda(lambda x: normalize(x)),
-        transforms.ToTensor(),
+        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8))),
+        transforms.ToTensor()
     ])
     val_trans = transforms.Compose([
-        transforms.Lambda(lambda x: crop_upper_part(np.array(x), crop_perc)),
+        transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
         transforms.ToPILImage(),
         transforms.Grayscale(3),
         transforms.Resize((input_shape[1], input_shape[2])),
-        transforms.Lambda(lambda x: normalize(np.array(x, dtype=np.float32))),
-        transforms.ToTensor(),
+        transforms.ToTensor()
     ])
     return train_trans, val_trans
 
 
 def train(args):
-    model = LModel(margin=args.margin, num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
+    model = XCeptionModel(num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
 
     if args.model:
         model.load_state_dict(torch.load(args.model))
@@ -60,33 +62,41 @@ def train(args):
 
     train_transform, val_transform = data_transformations(model.model.input_size)
 
+    # Train dataset
+    # train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
+    #                               transform=train_transform)
     train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
                                          transform=train_transform)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=BATCH_SIZE,
                                                        shuffle=True,
-                                                       num_workers=CPU_CORES)
+                                                       num_workers=CPU_CORES,
+                                                       pin_memory=True)
 
+    # Validation dataset
+    # validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH,
+    #                                                            'validation'),
+    #                                    transform=val_transform)
     validation_dataset = datasets.ImageFolder(
         root=os.path.join(DATASET_ROOT_PATH, 'validation'),
         transform=val_transform)
     validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
                                                             batch_size=BATCH_SIZE,
                                                             shuffle=False,
+                                                            pin_memory=True,
                                                             num_workers=CPU_CORES)
 
     if args.gpu > -1:
         model.cuda(args.gpu)
     criterion = nn.CrossEntropyLoss()
 
+    min_lr = 0.000001
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
-        optimizer = optim.SGD(params=optim_params, lr=0.001, momentum=0.9,
+        optimizer = optim.SGD(params=optim_params, lr=LEARNING_RATE, momentum=0.9,
                               weight_decay=0.0005)
-        min_lr = 0.00001
     elif args.optimizer == 'adam':
         optimizer = optim.Adam(optim_params, lr=LEARNING_RATE, weight_decay=0.0005)
-        min_lr = 0.00001
     else:
         raise ValueError('Unknown optimizer')
 
@@ -112,6 +122,7 @@ def train(args):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             logit = model(input=train_x, target=train_y)
             y_pred = logit.max(1)[1]
+
             loss = criterion(input=logit, target=train_y)
             loss_sum += loss.data[0]
 
@@ -127,8 +138,8 @@ def train(args):
             avg_loss = loss_sum / (i + 1)
             avg_acc = num_correct / (i + 1)
 
-            print('batch {}/{} | loss = {:.5f} | acc = {:.5f}'.format(i, batch_count, avg_loss,
-                                                                      avg_acc),
+            print('batch {}/{} | loss = {:.5f} | accuracy = {:.5f}'.format(i+1, batch_count,
+                                                                           avg_loss, avg_acc),
                   end="\r", flush=True)
 
             summary_writer.add_scalar(
@@ -138,33 +149,53 @@ def train(args):
     def validate():
         model.eval()
         loss_sum = num_correct = denom = 0
+        predicted, gt = [], []
+
+        print("Starting validation")
         for valid_batch in validation_dataset_loader:
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit = model(valid_x)
             y_pred = logit.max(1)[1]
             loss = criterion(input=logit, target=valid_y)
+
+            for act in y_pred.cpu().data.numpy():
+                predicted.append(act)
+            gt.extend(valid_y.cpu().data.numpy())
+
             loss_sum += loss.data[0] * valid_x.size(0)
             num_correct += y_pred.eq(valid_y).long().sum().data[0]
             denom += valid_x.size(0)
+
         loss = loss_sum / denom
         accuracy = num_correct / denom
         summary_writer.add_scalar(tag='valid_loss', scalar_value=loss,
                                   global_step=global_step)
         summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
                                   global_step=global_step)
+
         lr_scheduler.step(accuracy)
-        return loss, accuracy
+        gt = np.array(gt).flatten()
+        predicted = np.array(predicted)
+
+        f1 = f1_score(gt, predicted, average='macro')
+        prec = precision_score(gt, predicted, average='macro')
+        rec = recall_score(gt, predicted, average='macro')
+
+        return loss, accuracy, f1, prec, rec
 
     for epoch in range(1, args.max_epoch + 1):
         train_epoch()
-        valid_loss, valid_accuracy = validate()
+        valid_loss, valid_accuracy, f1_val, prec_val, rec_val = validate()
 
         if epoch == 1:
             best_valid_loss = valid_loss
 
-        print('Epoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
+        print('\nEpoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
         print('Epoch {}: Valid accuracy = {:.5f}'.format(epoch, valid_accuracy))
+        print('Epoch {}: Valid f1 = {:.5f}'.format(epoch, f1_val))
+        print('Epoch {}: Valid precision = {:.5f}'.format(epoch, prec_val))
+        print('Epoch {}: Valid recall = {:.5f}\n'.format(epoch, rec_val))
 
         if valid_loss <= best_valid_loss:
             model_filename = ('epoch_{:02d}'
