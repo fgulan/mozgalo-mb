@@ -12,14 +12,13 @@ from torchvision import transforms, datasets
 
 from sklearn.metrics import f1_score, precision_score, recall_score
 
-import torch.nn.functional as F
 from data import random_erase, crop_upper_part
-from model import XCeptionModel
+from model import XCeptionModel, SqueezeModel
 
 DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
 BATCH_SIZE = 32
-NUM_CLASSES = 25
+NUM_CLASSES = 26
 LEARNING_RATE = 1e-4
 
 
@@ -36,7 +35,7 @@ def data_transformations(input_shape):
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.2)),
-        # transforms.RandomHorizontalFlip(),
+        #transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
@@ -54,13 +53,13 @@ def data_transformations(input_shape):
 
 
 def train(args):
-    model = XCeptionModel(num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
+    model = SqueezeModel(num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
 
     if args.model:
         model.load_state_dict(torch.load(args.model))
         print("Loaded model from:", args.model)
 
-    train_transform, val_transform = data_transformations(model.model.input_size)
+    train_transform, val_transform = data_transformations(model.input_size)
 
     # Train dataset
     # train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
