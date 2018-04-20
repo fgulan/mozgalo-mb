@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import torch
+from sklearn.metrics import f1_score, precision_score, recall_score
 from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.autograd import Variable
@@ -10,10 +11,8 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
 
-from sklearn.metrics import f1_score, precision_score, recall_score
-
 from data import random_erase, crop_upper_part
-from model import XCeptionModel, SqueezeModel
+from model import SqueezeModel
 
 DATASET_ROOT_PATH = '../data/mozgalo_split'
 CPU_CORES = 8
@@ -35,7 +34,7 @@ def data_transformations(input_shape):
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.2)),
-        #transforms.RandomHorizontalFlip(),
+        # transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
@@ -137,7 +136,7 @@ def train(args):
             avg_loss = loss_sum / (i + 1)
             avg_acc = num_correct / (i + 1)
 
-            print('batch {}/{} | loss = {:.5f} | accuracy = {:.5f}'.format(i+1, batch_count,
+            print('batch {}/{} | loss = {:.5f} | accuracy = {:.5f}'.format(i + 1, batch_count,
                                                                            avg_loss, avg_acc),
                   end="\r", flush=True)
 
@@ -197,9 +196,10 @@ def train(args):
         print('Epoch {}: Valid recall = {:.5f}\n'.format(epoch, rec_val))
 
         if valid_loss <= best_valid_loss:
-            model_filename = ('epoch_{:02d}'
-                              '-valLoss_{:.5f}'
-                              '-valAcc_{:.5f}'.format(epoch, valid_loss, valid_accuracy))
+            model_filename = (args.name + '_epoch_{:02d}'
+                                          '-valLoss_{:.5f}'
+                                          '-valAcc_{:.5f}'.format(epoch, valid_loss,
+                                                                  valid_accuracy))
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
             print('Epoch {}: Saved the new best model to: {}'.format(epoch, model_path))
@@ -218,6 +218,8 @@ def main():
     parser.add_argument('--gpu', help="GPU use flag. 0 will use, -1 will not.", default=0,
                         type=int)
     parser.add_argument('--save-dir', help="Model saving folder", required=True)
+    parser.add_argument('--name', help="Model name prefix used for saving",
+                        required=True, type=str)
     parser.add_argument('--model', help="Path to the trained model file", default=None,
                         required=False)
     args = parser.parse_args()
