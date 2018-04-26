@@ -1,7 +1,7 @@
 import pretrainedmodels
 import torch.nn.functional as F
 from torch import nn
-from torchvision.models import squeezenet1_1
+from squeezenet import squeezenet1_1
 
 
 class XCeptionModel(nn.Module):
@@ -46,22 +46,27 @@ class SqueezeModel(nn.Module):
         """
         super().__init__()
 
-        self.model = squeezenet1_1(pretrained=True)
-        self.input_size = (3, 299, 299)
-        self.net = nn.Sequential(*list(self.model.children())[:-1])
+        self.features = squeezenet1_1(pretrained=True).features
+        self.num_classes = num_classes
 
-        if not fine_tune:
-            print("Base model layers will NOT be trained")
-            for param in self.net.parameters():
-                param.requires_grad = False
+        # Final convolution is initialized differently form the rest
+        final_conv = nn.Conv2d(512, self.num_classes, kernel_size=1)
+        self.conv = nn.Sequential(
+            nn.Dropout(p=0.5),
+            final_conv,
+            nn.ReLU(inplace=True)
+        )
 
-        self.logits = nn.Linear(512, num_classes)
+        for param in self.features.parameters():
+            param.requires_grad = fine_tune
 
     def forward(self, input, target=None):
-        conv_output = self.net(input)
+        x = self.features(input)
+        x = self.conv(x)
+        
+        avg_kernel_size = x[-1].shape[-2]
+        global_pooling = F.avg_pool2d(x, avg_kernel_size)
+        batch_size = x.size(0)
 
-        avg_kernel_size = conv_output[-1].shape[-2]
-        global_pooling = F.avg_pool2d(conv_output, avg_kernel_size)
-
-        batch_size = conv_output.size(0)
-        return self.logits(global_pooling.view(batch_size, -1))
+        return global_pooling.view(batch_size, self.num_classes)
+        
