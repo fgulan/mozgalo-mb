@@ -13,13 +13,17 @@ from torchvision import transforms, datasets
 
 from data import random_erase, crop_upper_part
 from model import SqueezeModel
+from center_loss import CenterLoss
+from utils import AverageMeter
 
 DATASET_ROOT_PATH = '/Users/filipgulan/college/mb-dataset'
-CPU_CORES = 4
-BATCH_SIZE = 4
+CPU_CORES = 1
+BATCH_SIZE = 16
 NUM_CLASSES = 25
 LEARNING_RATE = 1e-4
-INPUT_SHAPE = (3, 300, 300)
+INPUT_SHAPE = (3, 299, 261)
+CENTER_LOSS_WEIGHT = 1.0
+CENTER_LOSS_LR = 0.6
 
 def data_transformations(input_shape):
     """
@@ -53,7 +57,7 @@ def data_transformations(input_shape):
 
 def train(args):
     model = SqueezeModel(num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
-
+    
     if args.model:
         model.load_state_dict(torch.load(args.model))
         print("Loaded model from:", args.model)
@@ -83,23 +87,27 @@ def train(args):
                                                             shuffle=False,
                                                             pin_memory=True,
                                                             num_workers=CPU_CORES)
-
+    use_gpu = False
     if args.gpu > -1:
+        use_gpu = True
         model.cuda(args.gpu)
-    criterion = nn.CrossEntropyLoss()
+
+    criterion_xent = nn.CrossEntropyLoss()
+    criterion_cent = CenterLoss(num_classes=NUM_CLASSES, feat_dim=model.num_features, use_gpu=use_gpu)
+    optimizer_centloss = torch.optim.SGD(criterion_cent.parameters(), lr=CENTER_LOSS_LR)
 
     min_lr = 0.000001
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
-        optimizer = optim.SGD(params=optim_params, lr=LEARNING_RATE, momentum=0.9,
+        optimizer_model = optim.SGD(params=optim_params, lr=LEARNING_RATE, momentum=0.9,
                               weight_decay=0.0005)
     elif args.optimizer == 'adam':
-        optimizer = optim.Adam(optim_params, lr=LEARNING_RATE, weight_decay=0.0005)
+        optimizer_model = optim.Adam(optim_params, lr=LEARNING_RATE, weight_decay=0.0005)
     else:
         raise ValueError('Unknown optimizer')
 
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer, mode='max', factor=0.1, patience=2, verbose=True,
+        optimizer=optimizer_model, mode='max', factor=0.1, patience=2, verbose=True,
         min_lr=min_lr)
 
     summary_writer = SummaryWriter(os.path.join(args.save_dir, 'log'))
@@ -114,30 +122,47 @@ def train(args):
     def train_epoch():
         nonlocal global_step
         batch_count = len(train_dataset_loader)
-        loss_sum = num_correct = 0
+        num_correct = 0
         model.train()
+
+        xent_losses = AverageMeter()
+        cent_losses = AverageMeter()
+        losses = AverageMeter()
+
         for i, train_batch in enumerate(train_dataset_loader):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
-            logit = model(input=train_x, target=train_y)
+            sample_count = len(train_y)
+            logit, features = model(input=train_x, target=train_y)
             y_pred = logit.max(1)[1]
 
-            loss = criterion(input=logit, target=train_y)
-            loss_sum += loss.data[0]
+            loss_xent = criterion_xent(input=logit, target=train_y)
+            loss_cent = criterion_cent(features, train_y)
+            loss_cent *= CENTER_LOSS_WEIGHT
+            loss = loss_xent + loss_cent
 
             correct = y_pred.eq(train_y).long().sum().data[0]
-            num_correct += correct / len(train_y)
+            num_correct += correct / sample_count
 
-            optimizer.zero_grad()
+            optimizer_model.zero_grad()
+            optimizer_centloss.zero_grad()
             loss.backward()
+
             clip_grad_norm(model.parameters(), max_norm=10)
-            optimizer.step()
+            optimizer_model.step()
+
+            for param in criterion_cent.parameters():
+                param.grad.data *= (1. / CENTER_LOSS_WEIGHT)
+            optimizer_centloss.step()
+
             global_step += 1
 
-            avg_loss = loss_sum / (i + 1)
             avg_acc = num_correct / (i + 1)
+            losses.update(loss.item(), sample_count)
+            xent_losses.update(loss_xent.item(), sample_count)
+            cent_losses.update(loss_cent.item(), sample_count)
 
-            print('batch {}/{} | loss = {:.5f} | accuracy = {:.5f}'.format(i + 1, batch_count,
-                                                                           avg_loss, avg_acc),
+            print('batch {}/{} | Loss {:.6f} XentLoss {:.6f} CenterLoss {:.6f} | accuracy = {:.5f}'
+                  .format(i + 1, batch_count, losses.avg, xent_losses.avg, cent_losses.avg, avg_acc),
                   end="\r", flush=True)
 
             summary_writer.add_scalar(
@@ -153,9 +178,9 @@ def train(args):
         for valid_batch in validation_dataset_loader:
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
-            logit = model(valid_x)
+            logit, _ = model(valid_x)
             y_pred = logit.max(1)[1]
-            loss = criterion(input=logit, target=valid_y)
+            loss = criterion_xent(input=logit, target=valid_y)
 
             for act in y_pred.cpu().data.numpy():
                 predicted.append(act)
