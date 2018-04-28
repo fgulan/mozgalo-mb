@@ -51,14 +51,13 @@ class SqueezeModel(nn.Module):
         self.num_features = 512
         logits = nn.Linear(self.num_features, self.num_classes)
         self.classificator = nn.Sequential(logits)
-
         for param in self.features.parameters():
             param.requires_grad = fine_tune
 
     def forward(self, input, target=None):
         conv_output = self.features(input)
         avg_kernel_size = conv_output[-1].shape[-2:]
-        global_pooling = F.max_pool2d(conv_output, avg_kernel_size, stride=1)
+        global_pooling = F.avg_pool2d(conv_output, avg_kernel_size, stride=1)
         batch_size = conv_output.size(0)
         features = global_pooling.view(batch_size, -1)
         return self.classificator(features), features

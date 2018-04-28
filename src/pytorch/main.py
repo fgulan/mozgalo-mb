@@ -16,10 +16,10 @@ from model import SqueezeModel
 from center_loss import CenterLoss
 from utils import AverageMeter
 
-DATASET_ROOT_PATH = '/Users/filipgulan/college/mb-dataset'
-CPU_CORES = 1
-BATCH_SIZE = 16
-NUM_CLASSES = 25
+DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
+CPU_CORES = 8
+BATCH_SIZE = 32
+NUM_CLASSES = 26
 LEARNING_RATE = 1e-4
 INPUT_SHAPE = (3, 299, 261)
 CENTER_LOSS_WEIGHT = 1.0
@@ -141,7 +141,7 @@ def train(args):
             loss = loss_xent + loss_cent
 
             correct = y_pred.eq(train_y).long().sum().data[0]
-            num_correct += correct / sample_count
+            num_correct += correct
 
             optimizer_model.zero_grad()
             optimizer_centloss.zero_grad()
@@ -156,12 +156,12 @@ def train(args):
 
             global_step += 1
 
-            avg_acc = num_correct / (i + 1)
+            avg_acc = float(num_correct) / (float(i + 1) * sample_count)
             losses.update(loss.item(), sample_count)
             xent_losses.update(loss_xent.item(), sample_count)
             cent_losses.update(loss_cent.item(), sample_count)
 
-            print('batch {}/{} | Loss {:.6f} XentLoss {:.6f} CenterLoss {:.6f} | accuracy = {:.5f}'
+            print('batch {}/{} | Loss {:.6f} XentLoss {:.6f} CenterLoss {:.6f} | accuracy = {:.6f}'
                   .format(i + 1, batch_count, losses.avg, xent_losses.avg, cent_losses.avg, avg_acc),
                   end="\r", flush=True)
 
@@ -185,7 +185,6 @@ def train(args):
             for act in y_pred.cpu().data.numpy():
                 predicted.append(act)
             gt.extend(valid_y.cpu().data.numpy())
-
             loss_sum += loss.data[0] * valid_x.size(0)
             num_correct += y_pred.eq(valid_y).long().sum().data[0]
             denom += valid_x.size(0)
