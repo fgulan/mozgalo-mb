@@ -14,12 +14,12 @@ from torchvision import transforms, datasets
 from data import random_erase, crop_upper_part
 from model import SqueezeModel
 
-DATASET_ROOT_PATH = '../data/mozgalo_split'
-CPU_CORES = 8
-BATCH_SIZE = 32
-NUM_CLASSES = 26
+DATASET_ROOT_PATH = '/Users/filipgulan/college/mb-dataset'
+CPU_CORES = 4
+BATCH_SIZE = 4
+NUM_CLASSES = 25
 LEARNING_RATE = 1e-4
-
+INPUT_SHAPE = (3, 300, 300)
 
 def data_transformations(input_shape):
     """
@@ -58,7 +58,7 @@ def train(args):
         model.load_state_dict(torch.load(args.model))
         print("Loaded model from:", args.model)
 
-    train_transform, val_transform = data_transformations(model.input_size)
+    train_transform, val_transform = data_transformations(INPUT_SHAPE)
 
     # Train dataset
     # train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),

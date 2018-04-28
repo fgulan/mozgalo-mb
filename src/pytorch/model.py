@@ -48,25 +48,16 @@ class SqueezeModel(nn.Module):
 
         self.features = squeezenet1_1(pretrained=True).features
         self.num_classes = num_classes
-
-        # Final convolution is initialized differently form the rest
-        final_conv = nn.Conv2d(512, self.num_classes, kernel_size=1)
-        self.conv = nn.Sequential(
-            nn.Dropout(p=0.5),
-            final_conv,
-            nn.ReLU(inplace=True)
-        )
+        logits = nn.Linear(512, self.num_classes)
+        self.classificator = nn.Sequential(logits)
 
         for param in self.features.parameters():
             param.requires_grad = fine_tune
 
     def forward(self, input, target=None):
-        x = self.features(input)
-        x = self.conv(x)
-        
-        avg_kernel_size = x[-1].shape[-2]
-        global_pooling = F.avg_pool2d(x, avg_kernel_size)
-        batch_size = x.size(0)
+        conv_output = self.features(input)
+        avg_kernel_size = conv_output[-1].shape[-2]
+        global_pooling = F.avg_pool2d(conv_output, avg_kernel_size)
 
-        return global_pooling.view(batch_size, self.num_classes)
-        
+        batch_size = conv_output.size(0)
+        return self.classificator(global_pooling.view(batch_size, -1))
