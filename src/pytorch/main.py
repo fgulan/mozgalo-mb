@@ -171,7 +171,7 @@ def train(args):
 
     def validate():
         model.eval()
-        loss_sum = num_correct = denom = 0
+        loss_sum = num_correct = denom = 0.0
         predicted, gt = [], []
 
         print("Starting validation")
@@ -185,12 +185,12 @@ def train(args):
             for act in y_pred.cpu().data.numpy():
                 predicted.append(act)
             gt.extend(valid_y.cpu().data.numpy())
-            loss_sum += loss.data[0] * valid_x.size(0)
-            num_correct += y_pred.eq(valid_y).long().sum().data[0]
-            denom += valid_x.size(0)
+            loss_sum += float(loss.data[0]) * float(valid_x.size(0))
+            num_correct += float(y_pred.eq(valid_y).long().sum().data[0])
+            denom += float(valid_x.size(0))
 
-        loss = loss_sum / denom
-        accuracy = num_correct / denom
+        loss = float(loss_sum) / float(denom)
+        accuracy = float(num_correct) / float(denom)
         summary_writer.add_scalar(tag='valid_loss', scalar_value=loss,
                                   global_step=global_step)
         summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
