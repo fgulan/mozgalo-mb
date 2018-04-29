@@ -32,17 +32,17 @@ def data_transformations(input_shape):
     :return:
     """
     crop_perc = 0.5
-
+    erase_prob = 0.5
     train_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
-        transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.2)),
+        transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
         # transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
-        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8))),
+        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8), erase_prob)),
         transforms.ToTensor()
     ])
     val_trans = transforms.Compose([

@@ -3,7 +3,7 @@ import os
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
-
+import random
 
 def normalize(image):
     """
@@ -26,11 +26,14 @@ def crop_upper_part(image, percent=0.4):
     return image[:point]
 
 
-def random_erase(value):
+def random_erase(value, prob):
     """
     Performs random erasing augmentation technique.
     https://arxiv.org/pdf/1708.04896.pdf
     """
+    if random.random() > prob:
+        return value
+        
     h, w, _ = value.shape
 
     r_width = np.random.randint(20, w - 20)
