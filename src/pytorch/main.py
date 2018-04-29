@@ -18,10 +18,10 @@ from utils import AverageMeter
 
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
-BATCH_SIZE = 16
-NUM_CLASSES = 26
+BATCH_SIZE = 32
+NUM_CLASSES = 2
 LEARNING_RATE = 1e-4
-INPUT_SHAPE = (3, 299, 299)
+INPUT_SHAPE = (3, 370, 400) # C x H x W
 CENTER_LOSS_WEIGHT = 0.1
 CENTER_LOSS_LR = 0.001
 
@@ -94,7 +94,7 @@ def train(args):
 
     criterion_xent = nn.CrossEntropyLoss()
     criterion_cent = CenterLoss(num_classes=NUM_CLASSES, feat_dim=model.num_features, use_gpu=use_gpu)
-    optimizer_centloss = torch.optim.SGD(criterion_cent.parameters(), lr=CENTER_LOSS_LR)
+    optimizer_centloss = optim.Adam(criterion_cent.parameters(), lr=CENTER_LOSS_LR, weight_decay=0.0005)
 
     min_lr = 0.000001
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
@@ -232,8 +232,6 @@ def train(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--margin', help="Margin parameter from the LSoftmax paper", default=1,
-                        type=int)
     parser.add_argument('--optimizer', default='adam')
     parser.add_argument('--max-epoch', default=50, type=int)
     parser.add_argument('--fine-tune', dest="fine_tune",
