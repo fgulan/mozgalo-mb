@@ -22,8 +22,8 @@ BATCH_SIZE = 16
 NUM_CLASSES = 25
 LEARNING_RATE = 1e-4
 INPUT_SHAPE = (3, 370, 400) # C x H x W
-CENTER_LOSS_WEIGHT = 0.1
-CENTER_LOSS_LR = 0.001
+CENTER_LOSS_WEIGHT = 0.3
+CENTER_LOSS_LR = 1e-3
 
 def data_transformations(input_shape):
     """
@@ -107,7 +107,11 @@ def train(args):
         raise ValueError('Unknown optimizer')
 
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer_model, mode='max', factor=0.1, patience=2, verbose=True,
+        optimizer=optimizer_model, mode='max', factor=0.1, patience=3, verbose=True,
+        min_lr=min_lr)
+
+    cent_lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer=optimizer_centloss, mode='max', factor=0.1, patience=3, verbose=True,
         min_lr=min_lr)
 
     summary_writer = SummaryWriter(os.path.join(args.save_dir, 'log'))
@@ -197,6 +201,8 @@ def train(args):
                                   global_step=global_step)
 
         lr_scheduler.step(accuracy)
+        cent_lr_scheduler.step(accuracy)
+
         gt = np.array(gt).flatten()
         predicted = np.array(predicted)
 
