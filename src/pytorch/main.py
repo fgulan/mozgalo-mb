@@ -18,12 +18,12 @@ from utils import AverageMeter
 
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 NUM_CLASSES = 26
 LEARNING_RATE = 1e-4
-INPUT_SHAPE = (3, 299, 261)
-CENTER_LOSS_WEIGHT = 1.0
-CENTER_LOSS_LR = 0.6
+INPUT_SHAPE = (3, 299, 299)
+CENTER_LOSS_WEIGHT = 0.1
+CENTER_LOSS_LR = 0.001
 
 def data_transformations(input_shape):
     """
