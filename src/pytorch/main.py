@@ -18,9 +18,9 @@ from utils import AverageMeter
 
 DATASET_ROOT_PATH = '../data/dataset'
 CPU_CORES = 8
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 NUM_CLASSES = 25
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 5e-4
 INPUT_SHAPE = (3, 370, 400) # C x H x W
 CENTER_LOSS_WEIGHT = 0.003
 CENTER_LOSS_LR = 1e-3
@@ -164,7 +164,7 @@ def train(args):
             xent_losses.update(loss_xent.item(), sample_count)
             cent_losses.update(loss_cent.item(), sample_count)
 
-            print('batch {}/{} | Loss {:.6f} XentLoss {:.6f} CenterLoss {:.6f} | accuracy = {:.6f}'
+            print('batch {}/{} | Loss {:.6f} CEntLoss {:.6f} CenterLoss {:.6f} | accuracy = {:.6f}'
                   .format(i + 1, batch_count, losses.avg, xent_losses.avg, cent_losses.avg, avg_acc),
                   end="\r", flush=True)
 
@@ -188,9 +188,10 @@ def train(args):
 
             for act in y_pred.cpu().data.numpy():
                 predicted.append(act)
+
             gt.extend(valid_y.cpu().data.numpy())
-            loss_sum += float(loss.data[0]) * float(valid_x.size(0))
-            num_correct += float(y_pred.eq(valid_y).long().sum().data[0])
+            loss_sum += float(loss.item()) * float(valid_x.size(0))
+            num_correct += float(y_pred.eq(valid_y).long().sum().item())
             denom += float(valid_x.size(0))
 
         loss = float(loss_sum) / float(denom)
@@ -200,15 +201,15 @@ def train(args):
         summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
                                   global_step=global_step)
 
-        lr_scheduler.step(accuracy)
-        cent_lr_scheduler.step(accuracy)
-
         gt = np.array(gt).flatten()
         predicted = np.array(predicted)
 
         f1 = f1_score(gt, predicted, average='macro')
         prec = precision_score(gt, predicted, average='macro')
         rec = recall_score(gt, predicted, average='macro')
+
+        lr_scheduler.step(f1)
+        cent_lr_scheduler.step(f1)
 
         return loss, accuracy, f1, prec, rec
 

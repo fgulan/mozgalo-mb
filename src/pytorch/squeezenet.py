@@ -91,7 +91,7 @@ class SqueezeNet(nn.Module):
                 if m is final_conv:
                     init.normal_(m.weight.data, mean=0.0, std=0.01)
                 else:
-                    init.kaiming_uniform(m.weight.data)
+                    init.kaiming_uniform_(m.weight.data)
                 if m.bias is not None:
                     m.bias.data.zero_()
 
