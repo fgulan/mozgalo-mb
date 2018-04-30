@@ -18,9 +18,9 @@ from utils import AverageMeter
 
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
-BATCH_SIZE = 16
-NUM_CLASSES = 25
-LEARNING_RATE = 1e-5
+BATCH_SIZE = 32
+NUM_CLASSES = 1
+LEARNING_RATE = 1e-3
 INPUT_SHAPE = (3, 370, 400) # C x H x W
 CENTER_LOSS_WEIGHT = 0.5
 CENTER_LOSS_LR = 1e-2
@@ -32,12 +32,13 @@ def data_transformations(input_shape):
     :return:
     """
     crop_perc = 0.5
+
     train_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
-        # transforms.RandomHorizontalFlip(),
+        transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
@@ -56,7 +57,7 @@ def data_transformations(input_shape):
 
 def train(args):
     model = SqueezeModel(num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
-    
+
     if args.model:
         model.load_state_dict(torch.load(args.model))
         print("Loaded model from:", args.model)
@@ -64,10 +65,10 @@ def train(args):
     train_transform, val_transform = data_transformations(INPUT_SHAPE)
 
     # Train dataset
-    # train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
-    #                               transform=train_transform)
-    train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
-                                         transform=train_transform)
+     train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
+                                   transform=train_transform)
+    #train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
+    #                                     transform=train_transform)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=BATCH_SIZE,
                                                        shuffle=True,
@@ -75,12 +76,11 @@ def train(args):
                                                        pin_memory=True)
 
     # Validation dataset
-    # validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH,
-    #                                                            'validation'),
-    #                                    transform=val_transform)
-    validation_dataset = datasets.ImageFolder(
-        root=os.path.join(DATASET_ROOT_PATH, 'validation'),
-        transform=val_transform)
+    validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
+                                       transform=val_transform)
+    #validation_dataset = datasets.ImageFolder(
+    #    root=os.path.join(DATASET_ROOT_PATH, 'validation'),
+    #    transform=val_transform)
     validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
                                                             batch_size=BATCH_SIZE,
                                                             shuffle=False,
@@ -91,7 +91,7 @@ def train(args):
         use_gpu = True
         model.cuda(args.gpu)
 
-    criterion_xent = nn.CrossEntropyLoss()
+    criterion_xent = nn.BCEWithLogitsLoss()
     criterion_cent = CenterLoss(num_classes=NUM_CLASSES, feat_dim=model.num_features, use_gpu=use_gpu)
     optimizer_centloss = optim.Adam(criterion_cent.parameters(), lr=CENTER_LOSS_LR, weight_decay=0.0005)
 
@@ -136,7 +136,8 @@ def train(args):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             sample_count = len(train_y)
             logit, features = model(input=train_x, target=train_y)
-            y_pred = logit.max(1)[1]
+            #y_pred = logit.max(1)[1]
+            y_pred = F.sigmoid(logit).round()
 
             loss_xent = criterion_xent(input=logit, target=train_y)
             loss_cent = criterion_cent(features, train_y)
@@ -182,7 +183,9 @@ def train(args):
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit, _ = model(valid_x)
-            y_pred = logit.max(1)[1]
+            #y_pred = logit.max(1)[1]
+            y_pred = F.sigmoid(logit).round()
+
             loss = criterion_xent(input=logit, target=valid_y)
 
             for act in y_pred.cpu().data.numpy():

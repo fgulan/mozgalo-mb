@@ -38,8 +38,8 @@ class XCeptionModel(nn.Module):
 class SqueezeModel(nn.Module):
     def __init__(self, num_classes, fine_tune=True):
         """
+        SqueezeNet 1.1 Model
 
-        :param margin:
         :param num_classes: Number classes
         :param fine_tune: If true then all layers are trained. Otherwise only the top
         layers are trained and the main network layers are locked
@@ -51,6 +51,7 @@ class SqueezeModel(nn.Module):
         self.num_features = 512
         logits = nn.Linear(self.num_features, self.num_classes)
         self.classificator = nn.Sequential(logits)
+
         for param in self.features.parameters():
             param.requires_grad = fine_tune
 
@@ -60,4 +61,5 @@ class SqueezeModel(nn.Module):
         global_pooling = F.avg_pool2d(conv_output, avg_kernel_size)
         batch_size = conv_output.size(0)
         features = global_pooling.view(batch_size, -1)
+
         return self.classificator(features), features
