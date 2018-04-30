@@ -7,7 +7,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.autograd import Variable
-from torch.nn.utils import clip_grad_norm
+from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
 
@@ -16,13 +16,13 @@ from model import SqueezeModel
 from center_loss import CenterLoss
 from utils import AverageMeter
 
-DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
+DATASET_ROOT_PATH = '../data/dataset'
 CPU_CORES = 8
 BATCH_SIZE = 128
-NUM_CLASSES = 1
-LEARNING_RATE = 1e-3
+NUM_CLASSES = 25
+LEARNING_RATE = 1e-4
 INPUT_SHAPE = (3, 370, 400) # C x H x W
-CENTER_LOSS_WEIGHT = 0.3
+CENTER_LOSS_WEIGHT = 0.003
 CENTER_LOSS_LR = 1e-3
 
 def data_transformations(input_shape):
@@ -38,7 +38,7 @@ def data_transformations(input_shape):
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
-        transforms.RandomHorizontalFlip(),
+        #transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
@@ -65,10 +65,10 @@ def train(args):
     train_transform, val_transform = data_transformations(INPUT_SHAPE)
 
     # Train dataset
-     train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
-                                   transform=train_transform)
-    #train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
-    #                                     transform=train_transform)
+    #train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
+    #                               transform=train_transform)
+    train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
+                                         transform=train_transform)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=BATCH_SIZE,
                                                        shuffle=True,
@@ -76,11 +76,10 @@ def train(args):
                                                        pin_memory=True)
 
     # Validation dataset
-    validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
-                                       transform=val_transform)
-    #validation_dataset = datasets.ImageFolder(
-    #    root=os.path.join(DATASET_ROOT_PATH, 'validation'),
-    #    transform=val_transform)
+    #validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
+    #                                    transform=val_transform)
+    validation_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'validation'),
+                                              transform=val_transform)
     validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
                                                             batch_size=BATCH_SIZE,
                                                             shuffle=False,
@@ -91,7 +90,8 @@ def train(args):
         use_gpu = True
         model.cuda(args.gpu)
 
-    criterion_xent = nn.BCEWithLogitsLoss()
+    # Define Losses
+    criterion_xent = nn.CrossEntropyLoss()
     criterion_cent = CenterLoss(num_classes=NUM_CLASSES, feat_dim=model.num_features, use_gpu=use_gpu)
     optimizer_centloss = optim.Adam(criterion_cent.parameters(), lr=CENTER_LOSS_LR, weight_decay=0.0005)
 
@@ -136,22 +136,21 @@ def train(args):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             sample_count = len(train_y)
             logit, features = model(input=train_x, target=train_y)
-            #y_pred = logit.max(1)[1]
-            y_pred = F.sigmoid(logit).round()
+            y_pred = logit.max(1)[1]
 
             loss_xent = criterion_xent(input=logit, target=train_y)
             loss_cent = criterion_cent(features, train_y)
             loss_cent *= CENTER_LOSS_WEIGHT
             loss = loss_xent + loss_cent
 
-            correct = y_pred.eq(train_y).long().sum().data[0]
+            correct = y_pred.eq(train_y).long().sum().item()
             num_correct += correct
 
             optimizer_model.zero_grad()
             optimizer_centloss.zero_grad()
             loss.backward()
 
-            clip_grad_norm(model.parameters(), max_norm=10)
+            clip_grad_norm_(model.parameters(), max_norm=10)
             optimizer_model.step()
 
             for param in criterion_cent.parameters():
@@ -170,7 +169,7 @@ def train(args):
                   end="\r", flush=True)
 
             summary_writer.add_scalar(
-                tag='train_loss', scalar_value=loss.data[0],
+                tag='train_loss', scalar_value=loss.item(),
                 global_step=global_step)
 
     def validate():
@@ -183,8 +182,7 @@ def train(args):
             valid_x, valid_y = (var(valid_batch[0], volatile=True),
                                 var(valid_batch[1], volatile=True))
             logit, _ = model(valid_x)
-            #y_pred = logit.max(1)[1]
-            y_pred = F.sigmoid(logit).round()
+            y_pred = logit.max(1)[1]
 
             loss = criterion_xent(input=logit, target=valid_y)
 
@@ -219,7 +217,7 @@ def train(args):
         valid_loss, valid_accuracy, f1_val, prec_val, rec_val = validate()
 
         if epoch == 1:
-            best_valid_acc = valid_accuracy
+            best_valid_f1 = f1_val
 
         print('\nEpoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
         print('Epoch {}: Valid accuracy = {:.5f}'.format(epoch, valid_accuracy))
@@ -227,15 +225,15 @@ def train(args):
         print('Epoch {}: Valid precision = {:.5f}'.format(epoch, prec_val))
         print('Epoch {}: Valid recall = {:.5f}\n'.format(epoch, rec_val))
 
-        if valid_accuracy >= best_valid_acc:
+        if f1_val >= best_valid_f1:
             model_filename = (args.name + '_epoch_{:02d}'
                                           '-valLoss_{:.5f}'
-                                          '-valAcc_{:.5f}'.format(epoch, valid_loss,
-                                                                  valid_accuracy))
+                                          '-valF1_{:.5f}'.format(epoch, valid_loss,
+                                                                  f1_val))
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
             print('Epoch {}: Saved the new best model to: {}'.format(epoch, model_path))
-            best_valid_acc = valid_accuracy
+            best_valid_f1 = f1_val
 
 
 def main():
