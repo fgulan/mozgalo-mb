@@ -5,15 +5,6 @@ from PIL import Image
 from torch.utils.data import Dataset
 import random
 
-def normalize(image):
-    """
-    Normalizes image values to [-0.5, 0.5] range
-    :param image: Numpy array image
-    :return: Normalized image (numpy array)
-    """
-    return image / 255. - 0.5
-
-
 def crop_upper_part(image, percent=0.4):
     """
     Crops the upper part of an image
@@ -26,18 +17,19 @@ def crop_upper_part(image, percent=0.4):
     return image[:point]
 
 
-def random_erase(value, prob):
+def random_erase(value, max_perc=0.5):
     """
     Performs random erasing augmentation technique.
     https://arxiv.org/pdf/1708.04896.pdf
+
+    :param max_perc: Maximum width/height percentage of the part erased
     """
-    if random.random() > prob:
-        return value
-        
+    if max_perc >= 1 or max_perc <= 0:
+        raise ValueError("max_perc must be in the (0-1) range")
     h, w, _ = value.shape
 
-    r_width = np.random.randint(20, w - 20)
-    r_height = np.random.randint(20, h - 20)
+    r_width = np.random.randint(0, int(max_perc * w))
+    r_height = np.random.randint(0, int(max_perc * h))
 
     top_x = np.random.randint(0, w - r_width)
     top_y = np.random.randint(0, h - r_height)
