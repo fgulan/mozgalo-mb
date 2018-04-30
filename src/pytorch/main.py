@@ -19,7 +19,7 @@ from utils import AverageMeter
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
 BATCH_SIZE = 16
-NUM_CLASSES = 25
+NUM_CLASSES = 2
 LEARNING_RATE = 1e-4
 INPUT_SHAPE = (3, 370, 400) # C x H x W
 CENTER_LOSS_WEIGHT = 0.3
@@ -217,7 +217,7 @@ def train(args):
         valid_loss, valid_accuracy, f1_val, prec_val, rec_val = validate()
 
         if epoch == 1:
-            best_valid_loss = valid_loss
+            best_valid_acc = valid_accuracy
 
         print('\nEpoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
         print('Epoch {}: Valid accuracy = {:.5f}'.format(epoch, valid_accuracy))
@@ -225,7 +225,7 @@ def train(args):
         print('Epoch {}: Valid precision = {:.5f}'.format(epoch, prec_val))
         print('Epoch {}: Valid recall = {:.5f}\n'.format(epoch, rec_val))
 
-        if valid_loss <= best_valid_loss:
+        if valid_accuracy >= best_valid_acc:
             model_filename = (args.name + '_epoch_{:02d}'
                                           '-valLoss_{:.5f}'
                                           '-valAcc_{:.5f}'.format(epoch, valid_loss,
@@ -233,13 +233,13 @@ def train(args):
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
             print('Epoch {}: Saved the new best model to: {}'.format(epoch, model_path))
-            best_valid_loss = valid_loss
+            best_valid_acc = valid_accuracy
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--optimizer', default='adam')
-    parser.add_argument('--max-epoch', default=25, type=int)
+    parser.add_argument('--max-epoch', default=30, type=int)
     parser.add_argument('--fine-tune', dest="fine_tune",
                         help="If true then the whole network is trained, otherwise only the top",
                         action="store_true")
