@@ -18,12 +18,12 @@ from utils import AverageMeter
 
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 NUM_CLASSES = 25
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 1e-5
 INPUT_SHAPE = (3, 370, 400) # C x H x W
-CENTER_LOSS_WEIGHT = 0.3
-CENTER_LOSS_LR = 1e-3
+CENTER_LOSS_WEIGHT = 0.5
+CENTER_LOSS_LR = 1e-2
 
 def data_transformations(input_shape):
     """
@@ -32,7 +32,6 @@ def data_transformations(input_shape):
     :return:
     """
     crop_perc = 0.5
-    erase_prob = 0.5
     train_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
         transforms.ToPILImage(),
@@ -42,7 +41,7 @@ def data_transformations(input_shape):
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
-        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8), erase_prob)),
+        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8))),
         transforms.ToTensor()
     ])
     val_trans = transforms.Compose([
@@ -239,7 +238,7 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--optimizer', default='adam')
-    parser.add_argument('--max-epoch', default=30, type=int)
+    parser.add_argument('--max-epoch', default=15, type=int)
     parser.add_argument('--fine-tune', dest="fine_tune",
                         help="If true then the whole network is trained, otherwise only the top",
                         action="store_true")
