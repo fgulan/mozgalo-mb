@@ -18,8 +18,8 @@ from utils import AverageMeter
 
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
-BATCH_SIZE = 16
-NUM_CLASSES = 2
+BATCH_SIZE = 32
+NUM_CLASSES = 25
 LEARNING_RATE = 1e-4
 INPUT_SHAPE = (3, 370, 400) # C x H x W
 CENTER_LOSS_WEIGHT = 0.3
