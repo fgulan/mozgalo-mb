@@ -7,10 +7,11 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.autograd import Variable
-from torch.nn.utils import clip_grad_norm
+from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
 
+import datetime
 from data import random_erase, crop_upper_part
 from model import SqueezeModel
 from center_loss import CenterLoss
@@ -19,11 +20,11 @@ from utils import AverageMeter
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
 BATCH_SIZE = 32
-NUM_CLASSES = 1
-LEARNING_RATE = 1e-3
+NUM_CLASSES = 2
+LEARNING_RATE = 1e-4
 INPUT_SHAPE = (3, 370, 400) # C x H x W
-CENTER_LOSS_WEIGHT = 0.5
-CENTER_LOSS_LR = 1e-2
+CENTER_LOSS_WEIGHT = 0.003
+CENTER_LOSS_LR = 1e-3
 
 def data_transformations(input_shape):
     """
@@ -65,10 +66,10 @@ def train(args):
     train_transform, val_transform = data_transformations(INPUT_SHAPE)
 
     # Train dataset
-     train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
-                                   transform=train_transform)
-    #train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
-    #                                     transform=train_transform)
+    #train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
+    #                               transform=train_transform)
+    train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
+                                         transform=train_transform)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=BATCH_SIZE,
                                                        shuffle=True,
@@ -76,11 +77,10 @@ def train(args):
                                                        pin_memory=True)
 
     # Validation dataset
-    validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
-                                       transform=val_transform)
-    #validation_dataset = datasets.ImageFolder(
-    #    root=os.path.join(DATASET_ROOT_PATH, 'validation'),
-    #    transform=val_transform)
+    #validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
+    #                                    transform=val_transform)
+    validation_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'validation'),
+                                              transform=val_transform)
     validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
                                                             batch_size=BATCH_SIZE,
                                                             shuffle=False,
@@ -91,7 +91,8 @@ def train(args):
         use_gpu = True
         model.cuda(args.gpu)
 
-    criterion_xent = nn.BCEWithLogitsLoss()
+    # Define Losses
+    criterion_xent = nn.CrossEntropyLoss()
     criterion_cent = CenterLoss(num_classes=NUM_CLASSES, feat_dim=model.num_features, use_gpu=use_gpu)
     optimizer_centloss = optim.Adam(criterion_cent.parameters(), lr=CENTER_LOSS_LR, weight_decay=0.0005)
 
@@ -113,12 +114,14 @@ def train(args):
         optimizer=optimizer_centloss, mode='max', factor=0.1, patience=3, verbose=True,
         min_lr=min_lr)
 
-    summary_writer = SummaryWriter(os.path.join(args.save_dir, 'log'))
 
-    def var(tensor, volatile=False):
+    time_folder = str(datetime.datetime.now())
+    summary_writer = SummaryWriter(os.path.join("../logs", time_folder))
+
+    def var(tensor):
         if args.gpu > -1:
             tensor = tensor.cuda(args.gpu)
-        return Variable(tensor, volatile=volatile)
+        return tensor
 
     global_step = 0
 
@@ -136,22 +139,21 @@ def train(args):
             train_x, train_y = var(train_batch[0]), var(train_batch[1])
             sample_count = len(train_y)
             logit, features = model(input=train_x, target=train_y)
-            #y_pred = logit.max(1)[1]
-            y_pred = F.sigmoid(logit).round()
+            y_pred = logit.max(1)[1]
 
             loss_xent = criterion_xent(input=logit, target=train_y)
             loss_cent = criterion_cent(features, train_y)
             loss_cent *= CENTER_LOSS_WEIGHT
             loss = loss_xent + loss_cent
 
-            correct = y_pred.eq(train_y).long().sum().data[0]
+            correct = y_pred.eq(train_y).long().sum().item()
             num_correct += correct
 
             optimizer_model.zero_grad()
             optimizer_centloss.zero_grad()
             loss.backward()
 
-            clip_grad_norm(model.parameters(), max_norm=10)
+            clip_grad_norm_(model.parameters(), max_norm=10)
             optimizer_model.step()
 
             for param in criterion_cent.parameters():
@@ -165,45 +167,69 @@ def train(args):
             xent_losses.update(loss_xent.item(), sample_count)
             cent_losses.update(loss_cent.item(), sample_count)
 
-            print('batch {}/{} | Loss {:.6f} XentLoss {:.6f} CenterLoss {:.6f} | accuracy = {:.6f}'
+            print('batch {}/{} | Loss {:.6f} CEntLoss {:.6f} CenterLoss {:.6f} | accuracy = {:.6f}'
                   .format(i + 1, batch_count, losses.avg, xent_losses.avg, cent_losses.avg, avg_acc),
                   end="\r", flush=True)
 
-            summary_writer.add_scalar(
-                tag='train_loss', scalar_value=loss.data[0],
-                global_step=global_step)
+            if i % 50 == 0:
+                # Write to Tensorboard
+                summary_writer.add_scalar(tag='train_loss_total', scalar_value=losses.avg,
+                                          global_step=global_step)
+                summary_writer.add_scalar(tag='train_CE_Loss', scalar_value=xent_losses.avg,
+                                          global_step=global_step)
+                summary_writer.add_scalar(tag='train_center_Loss', scalar_value=cent_losses.avg,
+                                          global_step=global_step)
+                summary_writer.add_scalar(tag='train_accuracy', scalar_value=avg_acc,
+                                          global_step=global_step)
+
 
     def validate():
         model.eval()
-        loss_sum = num_correct = denom = 0.0
+        num_correct = denom = 0.0
         predicted, gt = [], []
+
+        losses = AverageMeter()
+        xent_losses = AverageMeter()
+        cent_losses = AverageMeter()
 
         print("Starting validation")
         for valid_batch in validation_dataset_loader:
-            valid_x, valid_y = (var(valid_batch[0], volatile=True),
-                                var(valid_batch[1], volatile=True))
-            logit, _ = model(valid_x)
-            #y_pred = logit.max(1)[1]
-            y_pred = F.sigmoid(logit).round()
+            valid_x, valid_y = (var(valid_batch[0]),
+                                var(valid_batch[1]))
+            logit, features = model(valid_x)
+            y_pred = logit.max(1)[1]
 
-            loss = criterion_xent(input=logit, target=valid_y)
+            # Batch size for averaging
+            sample_count = len(valid_y)
 
+            # Calculate losses
+            loss_xent = criterion_xent(input=logit, target=valid_y)
+            loss_cent = criterion_cent(features, valid_y) * CENTER_LOSS_WEIGHT
+            loss = loss_xent + loss_cent
+
+            # Update losses
+            losses.update(loss.item(), sample_count)
+            xent_losses.update(loss_xent.item(), sample_count)
+            cent_losses.update(loss_cent.item(), sample_count)
+
+            # Count predictions
             for act in y_pred.cpu().data.numpy():
                 predicted.append(act)
             gt.extend(valid_y.cpu().data.numpy())
-            loss_sum += float(loss.data[0]) * float(valid_x.size(0))
-            num_correct += float(y_pred.eq(valid_y).long().sum().data[0])
-            denom += float(valid_x.size(0))
+            num_correct += float(y_pred.eq(valid_y).long().sum().item())
+            denom += float(sample_count)
 
-        loss = float(loss_sum) / float(denom)
         accuracy = float(num_correct) / float(denom)
-        summary_writer.add_scalar(tag='valid_loss', scalar_value=loss,
+
+        # Write to Tensorboard
+        summary_writer.add_scalar(tag='valid_loss_total', scalar_value=losses.avg,
+                                  global_step=global_step)
+        summary_writer.add_scalar(tag='valid_CE_Loss', scalar_value=xent_losses.avg,
+                                  global_step=global_step)
+        summary_writer.add_scalar(tag='valid_center_Loss', scalar_value=cent_losses.avg,
                                   global_step=global_step)
         summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
                                   global_step=global_step)
-
-        lr_scheduler.step(accuracy)
-        cent_lr_scheduler.step(accuracy)
 
         gt = np.array(gt).flatten()
         predicted = np.array(predicted)
@@ -212,30 +238,33 @@ def train(args):
         prec = precision_score(gt, predicted, average='macro')
         rec = recall_score(gt, predicted, average='macro')
 
-        return loss, accuracy, f1, prec, rec
+        lr_scheduler.step(1. / cent_losses.avg)
+        cent_lr_scheduler.step(1. / xent_losses.avg)
+
+        return losses.avg, accuracy, f1, prec, rec
 
     for epoch in range(1, args.max_epoch + 1):
         train_epoch()
         valid_loss, valid_accuracy, f1_val, prec_val, rec_val = validate()
 
         if epoch == 1:
-            best_valid_acc = valid_accuracy
+            best_f1_val = f1_val
 
-        print('\nEpoch {}: Valid loss = {:.5f}'.format(epoch, valid_loss))
+        print('\nEpoch {}: Total Valid Loss = {:.5f}'.format(epoch, valid_loss))
         print('Epoch {}: Valid accuracy = {:.5f}'.format(epoch, valid_accuracy))
         print('Epoch {}: Valid f1 = {:.5f}'.format(epoch, f1_val))
         print('Epoch {}: Valid precision = {:.5f}'.format(epoch, prec_val))
         print('Epoch {}: Valid recall = {:.5f}\n'.format(epoch, rec_val))
 
-        if valid_accuracy >= best_valid_acc:
+        if f1_val >= best_f1_val:
             model_filename = (args.name + '_epoch_{:02d}'
                                           '-valLoss_{:.5f}'
-                                          '-valAcc_{:.5f}'.format(epoch, valid_loss,
-                                                                  valid_accuracy))
+                                          '-valF1_{:.5f}'.format(epoch, valid_loss,
+                                                                  f1_val))
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
             print('Epoch {}: Saved the new best model to: {}'.format(epoch, model_path))
-            best_valid_acc = valid_accuracy
+            best_f1_val = f1_val
 
 
 def main():
