@@ -19,12 +19,12 @@ from utils import AverageMeter
 
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
-BATCH_SIZE = 32
-NUM_CLASSES = 2
-LEARNING_RATE = 1e-4
+BATCH_SIZE = 48
+NUM_CLASSES = 26
+LEARNING_RATE = 1e-6
 INPUT_SHAPE = (3, 370, 400) # C x H x W
 CENTER_LOSS_WEIGHT = 0.003
-CENTER_LOSS_LR = 1e-3
+CENTER_LOSS_LR = 1e-6
 
 def data_transformations(input_shape):
     """
@@ -39,7 +39,7 @@ def data_transformations(input_shape):
         transforms.ToPILImage(),
         # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
-        transforms.RandomHorizontalFlip(),
+        # transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
@@ -270,7 +270,7 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--optimizer', default='adam')
-    parser.add_argument('--max-epoch', default=15, type=int)
+    parser.add_argument('--max-epoch', default=30, type=int)
     parser.add_argument('--fine-tune', dest="fine_tune",
                         help="If true then the whole network is trained, otherwise only the top",
                         action="store_true")
