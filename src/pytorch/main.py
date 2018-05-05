@@ -19,12 +19,12 @@ from utils import AverageMeter
 
 DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
 CPU_CORES = 8
-BATCH_SIZE = 48
+BATCH_SIZE = 64
 NUM_CLASSES = 26
-LEARNING_RATE = 1e-6
+LEARNING_RATE = 1e-4
 INPUT_SHAPE = (3, 370, 400) # C x H x W
 CENTER_LOSS_WEIGHT = 0.003
-CENTER_LOSS_LR = 1e-6
+CENTER_LOSS_LR = 1e-3
 
 def data_transformations(input_shape):
     """
@@ -96,7 +96,7 @@ def train(args):
     criterion_cent = CenterLoss(num_classes=NUM_CLASSES, feat_dim=model.num_features, use_gpu=use_gpu)
     optimizer_centloss = optim.Adam(criterion_cent.parameters(), lr=CENTER_LOSS_LR, weight_decay=0.0005)
 
-    min_lr = 0.000001
+    min_lr = 0.0000000001
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
         optimizer_model = optim.SGD(params=optim_params, lr=LEARNING_RATE, momentum=0.9,
@@ -107,13 +107,12 @@ def train(args):
         raise ValueError('Unknown optimizer')
 
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer_model, mode='max', factor=0.1, patience=3, verbose=True,
+        optimizer=optimizer_model, mode='min', factor=0.5, patience=6, verbose=True,
         min_lr=min_lr)
 
     cent_lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer_centloss, mode='max', factor=0.1, patience=3, verbose=True,
+        optimizer=optimizer_centloss, mode='min', factor=0.5, patience=6, verbose=True,
         min_lr=min_lr)
-
 
     time_folder = str(datetime.datetime.now())
     summary_writer = SummaryWriter(os.path.join("../logs", time_folder))
@@ -238,8 +237,8 @@ def train(args):
         prec = precision_score(gt, predicted, average='macro')
         rec = recall_score(gt, predicted, average='macro')
 
-        lr_scheduler.step(1. / cent_losses.avg)
-        cent_lr_scheduler.step(1. / xent_losses.avg)
+        lr_scheduler.step(xent_losses.avg)
+        cent_lr_scheduler.step(cent_losses.avg)
 
         return losses.avg, accuracy, f1, prec, rec
 
@@ -270,7 +269,7 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--optimizer', default='adam')
-    parser.add_argument('--max-epoch', default=30, type=int)
+    parser.add_argument('--max-epoch', default=100, type=int)
     parser.add_argument('--fine-tune', dest="fine_tune",
                         help="If true then the whole network is trained, otherwise only the top",
                         action="store_true")
