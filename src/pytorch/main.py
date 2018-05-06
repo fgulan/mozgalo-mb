@@ -127,9 +127,10 @@ def train(args):
     def train_epoch():
         nonlocal global_step
         batch_count = len(train_dataset_loader)
-        num_correct = 0
         model.train()
-
+        num_correct = denom = 0.0
+        predicted, gt = [], []
+        
         xent_losses = AverageMeter()
         cent_losses = AverageMeter()
         losses = AverageMeter()
@@ -145,8 +146,12 @@ def train(args):
             loss_cent *= CENTER_LOSS_WEIGHT
             loss = loss_xent + loss_cent
 
-            correct = y_pred.eq(train_y).long().sum().item()
-            num_correct += correct
+            for act in y_pred.cpu().data.numpy():
+                predicted.append(act)
+
+            gt.extend(train_y.cpu().data.numpy())
+            num_correct += float(y_pred.eq(train_y).long().sum().item())
+            denom += float(sample_count)
 
             optimizer_model.zero_grad()
             optimizer_centloss.zero_grad()
@@ -180,55 +185,8 @@ def train(args):
                                           global_step=global_step)
                 summary_writer.add_scalar(tag='train_accuracy', scalar_value=avg_acc,
                                           global_step=global_step)
-
-
-    def validate():
-        model.eval()
-        num_correct = denom = 0.0
-        predicted, gt = [], []
-
-        losses = AverageMeter()
-        xent_losses = AverageMeter()
-        cent_losses = AverageMeter()
-
-        print("Starting validation")
-        for valid_batch in validation_dataset_loader:
-            valid_x, valid_y = (var(valid_batch[0]),
-                                var(valid_batch[1]))
-            logit, features = model(valid_x)
-            y_pred = logit.max(1)[1]
-
-            # Batch size for averaging
-            sample_count = len(valid_y)
-
-            # Calculate losses
-            loss_xent = criterion_xent(input=logit, target=valid_y)
-            loss_cent = criterion_cent(features, valid_y) * CENTER_LOSS_WEIGHT
-            loss = loss_xent + loss_cent
-
-            # Update losses
-            losses.update(loss.item(), sample_count)
-            xent_losses.update(loss_xent.item(), sample_count)
-            cent_losses.update(loss_cent.item(), sample_count)
-
-            # Count predictions
-            for act in y_pred.cpu().data.numpy():
-                predicted.append(act)
-            gt.extend(valid_y.cpu().data.numpy())
-            num_correct += float(y_pred.eq(valid_y).long().sum().item())
-            denom += float(sample_count)
-
+        
         accuracy = float(num_correct) / float(denom)
-
-        # Write to Tensorboard
-        summary_writer.add_scalar(tag='valid_loss_total', scalar_value=losses.avg,
-                                  global_step=global_step)
-        summary_writer.add_scalar(tag='valid_CE_Loss', scalar_value=xent_losses.avg,
-                                  global_step=global_step)
-        summary_writer.add_scalar(tag='valid_center_Loss', scalar_value=cent_losses.avg,
-                                  global_step=global_step)
-        summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
-                                  global_step=global_step)
 
         gt = np.array(gt).flatten()
         predicted = np.array(predicted)
@@ -243,8 +201,7 @@ def train(args):
         return losses.avg, accuracy, f1, prec, rec
 
     for epoch in range(1, args.max_epoch + 1):
-        train_epoch()
-        valid_loss, valid_accuracy, f1_val, prec_val, rec_val = validate()
+        valid_loss, valid_accuracy, f1_val, prec_val, rec_val = train_epoch()
 
         if epoch == 1:
             best_f1_val = f1_val
