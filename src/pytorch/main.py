@@ -37,23 +37,14 @@ def data_transformations(input_shape):
     train_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
         transforms.ToPILImage(),
-        # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
-        # transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
         transforms.Grayscale(3),
         transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8))),
         transforms.ToTensor()
     ])
-    val_trans = transforms.Compose([
-        transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
-        transforms.ToPILImage(),
-        transforms.Grayscale(3),
-        transforms.Resize((input_shape[1], input_shape[2])),
-        transforms.ToTensor()
-    ])
-    return train_trans, val_trans
+    return train_trans
 
 
 def train(args):
@@ -63,11 +54,9 @@ def train(args):
         model.load_state_dict(torch.load(args.model))
         print("Loaded model from:", args.model)
 
-    train_transform, val_transform = data_transformations(INPUT_SHAPE)
+    train_transform = data_transformations(INPUT_SHAPE)
 
     # Train dataset
-    #train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
-    #                               transform=train_transform)
     train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
                                          transform=train_transform)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
@@ -75,17 +64,6 @@ def train(args):
                                                        shuffle=True,
                                                        num_workers=CPU_CORES,
                                                        pin_memory=True)
-
-    # Validation dataset
-    #validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
-    #                                    transform=val_transform)
-    validation_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'validation'),
-                                              transform=val_transform)
-    validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                            batch_size=BATCH_SIZE,
-                                                            shuffle=False,
-                                                            pin_memory=True,
-                                                            num_workers=CPU_CORES)
     use_gpu = False
     if args.gpu > -1:
         use_gpu = True
@@ -239,7 +217,6 @@ def main():
                         required=False)
     args = parser.parse_args()
     train(args)
-
 
 if __name__ == '__main__':
     main()
