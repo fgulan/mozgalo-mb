@@ -2291,7 +2291,7 @@ Other
 Smiths
 Other
 Kroger
-CVSPharmacy
+Safeway
 ShopRite
 Other
 Other
@@ -2453,7 +2453,7 @@ Publix
 Other
 StopShop
 Albertsons
-Meijer
+Other
 CVSPharmacy
 Costco
 Frys
@@ -3248,9 +3248,9 @@ Other
 Other
 Other
 Other
-Walgreens
 Other
 Other
+Other
 ShopRite
 Other
 Other
@@ -3627,7 +3627,7 @@ Other
 KingSoopers
 Other
 Kroger
-HEB
+Other
 Other
 Smiths
 Albertsons
@@ -3815,15 +3815,15 @@ Albertsons
 Safeway
 StopShop
 Target
-JewelOsco
 Other
+Other
 CVSPharmacy
 FredMeyer
 Other
 Smiths
 HEB
 Other
-Albertsons
+Smiths
 WinCoFoods
 Kroger
 Other
@@ -4086,7 +4086,7 @@ Publix
 Other
 WinCoFoods
 SamsClub
-HarrisTeeter
+Other
 Walmart
 FredMeyer
 Other
@@ -4105,7 +4105,7 @@ Other
 Smiths
 Kroger
 Other
-Walgreens
+Other
 Smiths
 KingSoopers
 Other
@@ -5039,8 +5039,8 @@ FredMeyer
 HEB
 Walmart
 Walgreens
-StopShop
 Other
+Other
 Safeway
 Albertsons
 Other
@@ -5717,7 +5717,7 @@ ShopRite
 Other
 Other
 Target
-Publix
+Other
 WholeFoodsMarket
 Kroger
 Publix
@@ -5846,7 +5846,7 @@ SamsClub
 Other
 Other
 Other
-BJs
+Meijer
 Other
 Costco
 WholeFoodsMarket
@@ -5891,8 +5891,8 @@ Other
 Other
 Other
 Target
-Meijer
 Other
+Other
 HyVee
 Wegmans
 Albertsons
@@ -6117,7 +6117,7 @@ HEB
 Other
 Target
 BJs
-Other
+WholeFoodsMarket
 Other
 FredMeyer
 HarrisTeeter
@@ -6405,7 +6405,7 @@ Costco
 Other
 Walgreens
 Safeway
-Other
+StopShop
 Costco
 Other
 Other
@@ -6773,7 +6773,7 @@ Other
 BJs
 Kroger
 FredMeyer
-Other
+Walgreens
 WinCoFoods
 HEB
 WholeFoodsMarket
@@ -6909,7 +6909,7 @@ Walgreens
 Costco
 StopShop
 Albertsons
-Costco
+Other
 JewelOsco
 CVSPharmacy
 Other
@@ -7217,7 +7217,7 @@ Costco
 Other
 Other
 Other
-Other
+StopShop
 ShopRite
 Other
 Other
@@ -7320,10 +7320,10 @@ KingSoopers
 KingSoopers
 CVSPharmacy
 Safeway
-Meijer
 Other
 Other
 Other
+Other
 Costco
 Other
 Other
@@ -8380,7 +8380,7 @@ Smiths
 Walmart
 Other
 FredMeyer
-Other
+CVSPharmacy
 Other
 BJs
 Other
@@ -8462,7 +8462,7 @@ Meijer
 Other
 BJs
 Other
-Other
+Walgreens
 Other
 Other
 Other
@@ -8749,8 +8749,8 @@ FredMeyer
 Other
 Other
 Other
-StopShop
 Other
+Other
 HyVee
 Other
 Wegmans
@@ -9311,7 +9311,7 @@ Other
 Smiths
 Other
 Kroger
-Other
+Costco
 Other
 Other
 HarrisTeeter
@@ -9830,7 +9830,7 @@ Other
 Other
 Other
 Other
-Target
+Other
 Other
 Target
 Albertsons

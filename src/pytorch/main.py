@@ -96,7 +96,7 @@ def train(args):
     criterion_cent = CenterLoss(num_classes=NUM_CLASSES, feat_dim=model.num_features, use_gpu=use_gpu)
     optimizer_centloss = optim.Adam(criterion_cent.parameters(), lr=CENTER_LOSS_LR, weight_decay=0.0005)
 
-    min_lr = 0.0000000001
+    min_lr = 0.00000000001
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
         optimizer_model = optim.SGD(params=optim_params, lr=LEARNING_RATE, momentum=0.9,
@@ -107,11 +107,11 @@ def train(args):
         raise ValueError('Unknown optimizer')
 
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer_model, mode='min', factor=0.5, patience=6, verbose=True,
+        optimizer=optimizer_model, mode='min', factor=0.25, patience=5, verbose=True,
         min_lr=min_lr)
 
     cent_lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer_centloss, mode='min', factor=0.5, patience=6, verbose=True,
+        optimizer=optimizer_centloss, mode='min', factor=0.25, patience=5, verbose=True,
         min_lr=min_lr)
 
     time_folder = str(datetime.datetime.now())
@@ -269,7 +269,7 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--optimizer', default='adam')
-    parser.add_argument('--max-epoch', default=100, type=int)
+    parser.add_argument('--max-epoch', default=48, type=int)
     parser.add_argument('--fine-tune', dest="fine_tune",
                         help="If true then the whole network is trained, otherwise only the top",
                         action="store_true")
