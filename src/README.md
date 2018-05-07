@@ -18,7 +18,7 @@ logs in the browser.
 Utility functions shared across the code.
 
 ### pytorch/
-Soruce code for PyTorch models
+Soruce code for PyTorch models.
 
 ### keras/
-Soruce code for Keras models
+Soruce code for Keras models.
