@@ -37,7 +37,6 @@ def data_transformations(input_shape):
     train_trans = transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
         transforms.ToPILImage(),
-        # Requires the master branch of the torchvision package
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
         # transforms.RandomHorizontalFlip(),
         transforms.Resize((input_shape[1], input_shape[2])),

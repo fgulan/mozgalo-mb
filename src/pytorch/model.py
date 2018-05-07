@@ -90,4 +90,4 @@ class SqueezeModelSoftmax(nn.Module):
         batch_size = conv_output.size(0)
         features = global_pooling.view(batch_size, -1)
         logits = self.classificator(features)
-        return F.softmax(logits)
+        return F.softmax(logits, dim=1)
