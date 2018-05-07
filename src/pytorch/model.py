@@ -3,7 +3,6 @@ import torch.nn.functional as F
 from torch import nn
 from squeezenet import squeezenet1_1
 
-
 class XCeptionModel(nn.Module):
     def __init__(self, num_classes, fine_tune=True):
         """

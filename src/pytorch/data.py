@@ -1,9 +1,9 @@
 import os
-
+import random
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
-import random
+
 
 def crop_upper_part(image, percent=0.4):
     """
