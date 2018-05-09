@@ -58,10 +58,10 @@ def moving_average(net1, net2, alpha=1):
 def train_epoch(loader, model, model_criterion, center_criterion,
                 model_optimizer, center_optimizer, use_gpu=True):
     batch_count = len(loader)
+    total_correct = 0.0
 
     model.train()
 
-    accuracy_meter = AverageMeter()
     model_loss_meter = AverageMeter()
     center_loss_meter = AverageMeter()
     total_loss_meter = AverageMeter()
@@ -87,24 +87,29 @@ def train_epoch(loader, model, model_criterion, center_criterion,
 
         model_optimizer.step()
         center_optimizer.step()
-
+        
         num_correct = float(y_pred.eq(target_var).long().sum().item())
-        accuracy_meter.update(num_correct, sample_count)
+        total_correct += num_correct
+
+        avg_acc = float(total_correct) / (float(i + 1) * sample_count)
         total_loss_meter.update(loss.item(), sample_count)
         model_loss_meter.update(model_loss.item(), sample_count)
         center_loss_meter.update(center_loss.item(), sample_count)
 
         print('Batch {}/{} | loss {:.6f} model_loss {:.6f} center_loss {:.6f} | accuracy = {:.6f}'
               .format(i + 1, batch_count, total_loss_meter.avg, model_loss_meter.avg,
-                      center_loss_meter.avg, accuracy_meter.avg),
+                      center_loss_meter.avg, avg_acc),
               end="\r", flush=True)
-    
+
+    num_samples = float(len(loader.dataset))
+    accuracy = total_correct / num_samples
+
     print("\n")
     return {
         'total_loss': total_loss_meter.avg,
         'model_loss': model_loss_meter.avg,
         'center_loss': center_loss_meter.avg,
-        'accuracy': accuracy_meter.avg,
+        'accuracy': accuracy,
     }
 
 
