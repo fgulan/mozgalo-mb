@@ -98,7 +98,8 @@ def train_epoch(loader, model, model_criterion, center_criterion,
               .format(i + 1, batch_count, total_loss_meter.avg, model_loss_meter.avg,
                       center_loss_meter.avg, accuracy_meter.avg),
               end="\r", flush=True)
-
+    
+    print("\n")
     return {
         'total_loss': total_loss_meter.avg,
         'model_loss': model_loss_meter.avg,
@@ -124,7 +125,7 @@ def evaluate(loader, model, model_criterion,
         input_var, target_var = var(input, use_gpu), var(target, use_gpu)
         sample_count = len(target_var)
 
-        print('batch {}/{}'
+        print('Eval batch {}/{}'
               .format(i + 1, batch_count),
               end="\r", flush=True)
         logit, features = model(input_var)
