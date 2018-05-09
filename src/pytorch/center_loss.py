@@ -11,11 +11,12 @@ class CenterLoss(nn.Module):
         num_classes (int): number of classes.
         feat_dim (int): feature dimension.
     """
-    def __init__(self, num_classes=10, feat_dim=2, use_gpu=True):
+    def __init__(self, num_classes=10, feat_dim=2, loss_weight=0.003, use_gpu=True):
         super(CenterLoss, self).__init__()
         self.num_classes = num_classes
         self.feat_dim = feat_dim
         self.use_gpu = use_gpu
+        self.loss_weight = loss_weight
 
         if self.use_gpu:
             self.centers = nn.Parameter(torch.randn(self.num_classes, self.feat_dim).cuda())
@@ -46,4 +47,4 @@ class CenterLoss(nn.Module):
         dist = torch.cat(dist)
         loss = dist.mean()
 
-        return loss
+        return loss * self.loss_weight
