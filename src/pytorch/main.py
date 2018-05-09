@@ -40,6 +40,7 @@ def train(args):
     if args.gpu > -1:
         use_gpu = True
         model.cuda(args.gpu)
+        swa_model.cuda(args.gpu)
 
     # dataset
     input_shape = (args.num_channels, args.height, args.width)
@@ -158,7 +159,7 @@ def main():
     parser.add_argument('--width', default=400, type=int)
 
     parser.add_argument('--swa-start-epoch', type=float,
-                        default=5, help='SWA start epoch number')
+                        default=2, help='SWA start epoch number')
     parser.add_argument('--swa-lr', type=float,
                         default=0.05, help='SWA learn ratio')
     parser.add_argument('--swa-c-epochs', type=int, default=2,
