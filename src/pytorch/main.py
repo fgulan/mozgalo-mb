@@ -1,290 +1,147 @@
-import argparse
 import os
-
-import numpy as np
+import argparse
 import torch
-from sklearn.metrics import f1_score, precision_score, recall_score
-from tensorboardX import SummaryWriter
-from torch import nn, optim
-from torch.autograd import Variable
-from torch.nn.utils import clip_grad_norm_
-from torch.utils.data import DataLoader
-from torchvision import transforms, datasets
+import numpy as np
 
-import datetime
-from data import random_erase, crop_upper_part
+from torch.nn import CrossEntropyLoss
+from torch.utils.data import DataLoader
+from torch.optim import Adam, SGD
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torchvision.datasets import ImageFolder
+
 from model import SqueezeModel
 from center_loss import CenterLoss
-from utils import AverageMeter
+from train import data_transformations, train_epoch, moving_average, evaluate
 
-DATASET_ROOT_PATH = '/home/gulan_filip/dataset'
-CPU_CORES = 8
-BATCH_SIZE = 64
-NUM_CLASSES = 26
-LEARNING_RATE = 1e-4
-INPUT_SHAPE = (3, 370, 400) # C x H x W
-CENTER_LOSS_WEIGHT = 0.003
-CENTER_LOSS_LR = 1e-3
 
-def data_transformations(input_shape):
-    """
-
-    :param input_shape:
-    :return:
-    """
-    crop_perc = 0.5
-
-    train_trans = transforms.Compose([
-        transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
-        transforms.ToPILImage(),
-        transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
-        # transforms.RandomHorizontalFlip(),
-        transforms.Resize((input_shape[1], input_shape[2])),
-        transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
-        transforms.Grayscale(3),
-        transforms.Lambda(lambda x: random_erase(np.array(x, dtype=np.uint8))),
-        transforms.ToTensor()
-    ])
-    val_trans = transforms.Compose([
-        transforms.Lambda(lambda x: crop_upper_part(np.array(x, dtype=np.uint8), crop_perc)),
-        transforms.ToPILImage(),
-        transforms.Grayscale(3),
-        transforms.Resize((input_shape[1], input_shape[2])),
-        transforms.ToTensor()
-    ])
-    return train_trans, val_trans
+def print_eval_info(eval_info, epoch):
+    print("\n")
+    print('Epoch {}: Total Valid Loss = {:.5f}'.format(
+        epoch, eval_info['total_loss']))
+    print('Epoch {}: Valid accuracy = {:.5f}'.format(
+        epoch, eval_info['accuracy']))
+    print('Epoch {}: Valid f1 = {:.5f}'.format(epoch, eval_info['f1']))
+    print('Epoch {}: Valid precision = {:.5f}'.format(
+        epoch, eval_info['precision']))
+    print('Epoch {}: Valid recall = {:.5f}\n'.format(
+        epoch, eval_info['recall']))
 
 
 def train(args):
-    model = SqueezeModel(num_classes=NUM_CLASSES, fine_tune=args.fine_tune)
+    # model
+    model = SqueezeModel(num_classes=args.num_classes)
 
     if args.model:
         model.load_state_dict(torch.load(args.model))
         print("Loaded model from:", args.model)
 
-    train_transform, val_transform = data_transformations(INPUT_SHAPE)
-
-    # Train dataset
-    #train_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'train'),
-    #                               transform=train_transform)
-    train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'train'),
-                                         transform=train_transform)
-    train_dataset_loader = torch.utils.data.DataLoader(train_dataset,
-                                                       batch_size=BATCH_SIZE,
-                                                       shuffle=True,
-                                                       num_workers=CPU_CORES,
-                                                       pin_memory=True)
-
-    # Validation dataset
-    #validation_dataset = BinaryDataset(images_dir=os.path.join(DATASET_ROOT_PATH, 'validation'),
-    #                                    transform=val_transform)
-    validation_dataset = datasets.ImageFolder(root=os.path.join(DATASET_ROOT_PATH, 'validation'),
-                                              transform=val_transform)
-    validation_dataset_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                            batch_size=BATCH_SIZE,
-                                                            shuffle=False,
-                                                            pin_memory=True,
-                                                            num_workers=CPU_CORES)
     use_gpu = False
     if args.gpu > -1:
         use_gpu = True
         model.cuda(args.gpu)
 
-    # Define Losses
-    criterion_xent = nn.CrossEntropyLoss()
-    criterion_cent = CenterLoss(num_classes=NUM_CLASSES, feat_dim=model.num_features, use_gpu=use_gpu)
-    optimizer_centloss = optim.Adam(criterion_cent.parameters(), lr=CENTER_LOSS_LR, weight_decay=0.0005)
+    # dataset
+    input_shape = (args.num_channels, args.height, args.width)
+    train_transform, val_transform = data_transformations(input_shape)
 
-    min_lr = 0.00000000001
+    train_dataset = ImageFolder(root=os.path.join(args.dataset, 'train'),
+                                transform=train_transform)
+    train_dataset_loader = DataLoader(train_dataset,
+                                      batch_size=args.batch_size,
+                                      shuffle=True,
+                                      num_workers=args.num_threads,
+                                      pin_memory=True)
+
+    validation_dataset = ImageFolder(root=os.path.join(args.dataset, 'validation'),
+                                     transform=val_transform)
+    validation_dataset_loader = DataLoader(validation_dataset,
+                                           batch_size=args.batch_size,
+                                           shuffle=False,
+                                           num_workers=args.num_threads,
+                                           pin_memory=True)
+
+    # losses
+    model_criterion = CrossEntropyLoss()
+    center_criterion = CenterLoss(num_classes=args.num_classes,
+                                  feat_dim=model.num_features,
+                                  use_gpu=use_gpu)
+
+    # optimizers
     optim_params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'sgd':
-        optimizer_model = optim.SGD(params=optim_params, lr=LEARNING_RATE, momentum=0.9,
-                              weight_decay=0.0005)
+        model_optimizer = SGD(params=optim_params, lr=args.learning_rate,
+                              momentum=args.momentum, weight_decay=args.weight_decay)
     elif args.optimizer == 'adam':
-        optimizer_model = optim.Adam(optim_params, lr=LEARNING_RATE, weight_decay=0.0005)
+        model_optimizer = Adam(optim_params, lr=args.learning_rate,
+                               weight_decay=args.weight_decay)
     else:
         raise ValueError('Unknown optimizer')
 
-    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer_model, mode='min', factor=0.25, patience=5, verbose=True,
-        min_lr=min_lr)
+    center_optimizer = Adam(center_criterion.parameters(), lr=args.center_learning_rate,
+                            weight_decay=args.weight_decay)
 
-    cent_lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer_centloss, mode='min', factor=0.25, patience=5, verbose=True,
-        min_lr=min_lr)
-
-    time_folder = str(datetime.datetime.now())
-    summary_writer = SummaryWriter(os.path.join("../logs", time_folder))
-
-    def var(tensor):
-        if args.gpu > -1:
-            tensor = tensor.cuda(args.gpu)
-        return tensor
-
-    global_step = 0
-
-    def train_epoch():
-        nonlocal global_step
-        batch_count = len(train_dataset_loader)
-        num_correct = 0
-        model.train()
-
-        xent_losses = AverageMeter()
-        cent_losses = AverageMeter()
-        losses = AverageMeter()
-
-        for i, train_batch in enumerate(train_dataset_loader):
-            train_x, train_y = var(train_batch[0]), var(train_batch[1])
-            sample_count = len(train_y)
-            logit, features = model(input=train_x, target=train_y)
-            y_pred = logit.max(1)[1]
-
-            loss_xent = criterion_xent(input=logit, target=train_y)
-            loss_cent = criterion_cent(features, train_y)
-            loss_cent *= CENTER_LOSS_WEIGHT
-            loss = loss_xent + loss_cent
-
-            correct = y_pred.eq(train_y).long().sum().item()
-            num_correct += correct
-
-            optimizer_model.zero_grad()
-            optimizer_centloss.zero_grad()
-            loss.backward()
-
-            clip_grad_norm_(model.parameters(), max_norm=10)
-            optimizer_model.step()
-
-            for param in criterion_cent.parameters():
-                param.grad.data *= (1. / CENTER_LOSS_WEIGHT)
-            optimizer_centloss.step()
-
-            global_step += 1
-
-            avg_acc = float(num_correct) / (float(i + 1) * sample_count)
-            losses.update(loss.item(), sample_count)
-            xent_losses.update(loss_xent.item(), sample_count)
-            cent_losses.update(loss_cent.item(), sample_count)
-
-            print('batch {}/{} | Loss {:.6f} CEntLoss {:.6f} CenterLoss {:.6f} | accuracy = {:.6f}'
-                  .format(i + 1, batch_count, losses.avg, xent_losses.avg, cent_losses.avg, avg_acc),
-                  end="\r", flush=True)
-
-            if i % 50 == 0:
-                # Write to Tensorboard
-                summary_writer.add_scalar(tag='train_loss_total', scalar_value=losses.avg,
-                                          global_step=global_step)
-                summary_writer.add_scalar(tag='train_CE_Loss', scalar_value=xent_losses.avg,
-                                          global_step=global_step)
-                summary_writer.add_scalar(tag='train_center_Loss', scalar_value=cent_losses.avg,
-                                          global_step=global_step)
-                summary_writer.add_scalar(tag='train_accuracy', scalar_value=avg_acc,
-                                          global_step=global_step)
-
-
-    def validate():
-        model.eval()
-        num_correct = denom = 0.0
-        predicted, gt = [], []
-
-        losses = AverageMeter()
-        xent_losses = AverageMeter()
-        cent_losses = AverageMeter()
-
-        print("Starting validation")
-        batch_count = len(validation_dataset_loader)
-        for i, valid_batch in enumerate(validation_dataset_loader):
-
-            print('batch {}/{}'
-                  .format(i + 1, batch_count),
-                  end="\r", flush=True)
-
-            valid_x, valid_y = (var(valid_batch[0]),
-                                var(valid_batch[1]))
-            logit, features = model(valid_x)
-            y_pred = logit.max(1)[1]
-
-            # Batch size for averaging
-            sample_count = len(valid_y)
-
-            # Calculate losses
-            loss_xent = criterion_xent(input=logit, target=valid_y)
-            loss_cent = criterion_cent(features, valid_y) * CENTER_LOSS_WEIGHT
-            loss = loss_xent + loss_cent
-
-            # Update losses
-            losses.update(loss.item(), sample_count)
-            xent_losses.update(loss_xent.item(), sample_count)
-            cent_losses.update(loss_cent.item(), sample_count)
-
-            # Count predictions
-            for act in y_pred.cpu().data.numpy():
-                predicted.append(act)
-            gt.extend(valid_y.cpu().data.numpy())
-            num_correct += float(y_pred.eq(valid_y).long().sum().item())
-            denom += float(sample_count)
-
-        accuracy = float(num_correct) / float(denom)
-
-        # Write to Tensorboard
-        summary_writer.add_scalar(tag='valid_loss_total', scalar_value=losses.avg,
-                                  global_step=global_step)
-        summary_writer.add_scalar(tag='valid_CE_Loss', scalar_value=xent_losses.avg,
-                                  global_step=global_step)
-        summary_writer.add_scalar(tag='valid_center_Loss', scalar_value=cent_losses.avg,
-                                  global_step=global_step)
-        summary_writer.add_scalar(tag='valid_accuracy', scalar_value=accuracy,
-                                  global_step=global_step)
-
-        gt = np.array(gt).flatten()
-        predicted = np.array(predicted)
-
-        f1 = f1_score(gt, predicted, average='macro')
-        prec = precision_score(gt, predicted, average='macro')
-        rec = recall_score(gt, predicted, average='macro')
-
-        lr_scheduler.step(xent_losses.avg)
-        cent_lr_scheduler.step(cent_losses.avg)
-
-        return losses.avg, accuracy, f1, prec, rec
+    # schedulers
+    model_lr_scheduler = ReduceLROnPlateau(
+        model_optimizer, factor=0.25, patience=5, verbose=True)
+    center_lr_scheduler = ReduceLROnPlateau(
+        center_optimizer, factor=0.25, patience=5, verbose=True)
 
     for epoch in range(1, args.max_epoch + 1):
-        train_epoch()
-        valid_loss, valid_accuracy, f1_val, prec_val, rec_val = validate()
+        train_info = train_epoch(train_dataset_loader,
+                                 model, model_criterion, center_criterion,
+                                 model_optimizer, center_optimizer, use_gpu)
+
+
+        eval_info = evaluate(validation_dataset_loader, model,
+                             model_criterion, center_criterion, use_gpu)
+
+        model_lr_scheduler.step(eval_info['model_loss'])
+        center_lr_scheduler.step(eval_info['center_loss'])
+
+        print_eval_info(eval_info, epoch)
 
         if epoch == 1:
-            best_f1_val = f1_val
+            best_f1_val = eval_info['f1']
 
-        print('\nEpoch {}: Total Valid Loss = {:.5f}'.format(epoch, valid_loss))
-        print('Epoch {}: Valid accuracy = {:.5f}'.format(epoch, valid_accuracy))
-        print('Epoch {}: Valid f1 = {:.5f}'.format(epoch, f1_val))
-        print('Epoch {}: Valid precision = {:.5f}'.format(epoch, prec_val))
-        print('Epoch {}: Valid recall = {:.5f}\n'.format(epoch, rec_val))
-
-        if f1_val >= best_f1_val:
+        if eval_info['f1'] >= best_f1_val:
             model_filename = (args.name + '_epoch_{:02d}'
                                           '-valLoss_{:.5f}'
-                                          '-valF1_{:.5f}'.format(epoch, valid_loss,
-                                                                  f1_val))
+                                          '-valF1_{:.5f}'.format(epoch, eval_info['total_loss'],
+                                                                 eval_info['f1']))
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
-            print('Epoch {}: Saved the new best model to: {}'.format(epoch, model_path))
-            best_f1_val = f1_val
+            print('Epoch {}: Saved the new best model to: {}'.format(
+                epoch, model_path))
+            best_f1_val = eval_info['f1']
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--optimizer', default='adam')
+    parser.add_argument('--learning-rate', default=1e-4, type=float)
+    parser.add_argument('--center-learning-rate', default=1e-3, type=float)
+    parser.add_argument('--weight-decay', default=5e-4, type=float)
+    parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--max-epoch', default=60, type=int)
-    parser.add_argument('--fine-tune', dest="fine_tune",
-                        help="If true then the whole network is trained, otherwise only the top",
-                        action="store_true")
-    parser.add_argument('--gpu', help="GPU use flag. 0 will use, -1 will not.", default=0,
-                        type=int)
-    parser.add_argument('--save-dir', help="Model saving folder", required=True)
-    parser.add_argument('--name', help="Model name prefix used for saving",
-                        required=True, type=str)
-    parser.add_argument('--model', help="Path to the trained model file", default=None,
-                        required=False)
+    parser.add_argument(
+        '--gpu', help="GPU use flag. 0 will use, -1 will not.", default=0, type=int)
+    parser.add_argument(
+        '--save-dir', help="Model saving folder", default='./models', required=True)
+    parser.add_argument(
+        '--name', help="Model name prefix used for saving", required=True, type=str)
+    parser.add_argument(
+        '--model', help="Path to the trained model file", default=None, required=False)
+    parser.add_argument('--dataset', help="Path to the dataset",
+                        default='../data/dataset', required=True)
+    parser.add_argument(
+        '--num-classes', help="Number of classes", default=26, type=int)
+    parser.add_argument(
+        '--num-threads', help="Number of threads to use", default=4, type=int)
+    parser.add_argument('--batch-size', help="Batch size",
+                        default=64, type=int)
+    parser.add_argument('--num-channels', default=3, type=int)
+    parser.add_argument('--height', default=370, type=int)
+    parser.add_argument('--width', default=400, type=int)
     args = parser.parse_args()
     train(args)
 
