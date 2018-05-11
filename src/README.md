@@ -2,9 +2,6 @@
 
 This folder contains the source code and data
 
-## Downloading data
-TODO
-
 ## Directory and file structure
 
 ### data/
@@ -17,7 +14,11 @@ Contains trained models.
 Tensorboard visualizations. Run `tensorboard --logdir=/path_to_your_logs` to see the
 logs in the browser.
 
-### utils.py
+### utils/
 Utility functions shared across the code.
 
+### pytorch/
+Soruce code for PyTorch models.
 
+### keras/
+Soruce code for Keras models.
