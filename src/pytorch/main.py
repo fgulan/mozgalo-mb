@@ -1,17 +1,15 @@
-import os
 import argparse
-import torch
-import numpy as np
+import os
 
-from torch.nn import CrossEntropyLoss
-from torch.utils.data import DataLoader
+import torch
+from center_loss import CenterLoss
+from focal_loss import FocalLoss
+from model import SqueezeModel
 from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
-
-from model import SqueezeModel
-from center_loss import CenterLoss
-from train import data_transformations, train_epoch, moving_average, evaluate
+from train import data_transformations, train_epoch, evaluate
 
 
 def print_eval_info(eval_info, epoch):
@@ -61,7 +59,8 @@ def train(args):
                                            pin_memory=True)
 
     # losses
-    model_criterion = CrossEntropyLoss()
+    # model_criterion = CrossEntropyLoss()
+    model_criterion = FocalLoss(class_num=args.num_classes, gamma=-0.5)
     center_criterion = CenterLoss(num_classes=args.num_classes,
                                   feat_dim=model.num_features,
                                   use_gpu=use_gpu)
@@ -87,10 +86,9 @@ def train(args):
         center_optimizer, factor=0.25, patience=5, verbose=True)
 
     for epoch in range(1, args.max_epoch + 1):
-        train_info = train_epoch(train_dataset_loader,
-                                 model, model_criterion, center_criterion,
-                                 model_optimizer, center_optimizer, use_gpu)
-
+        _ = train_epoch(train_dataset_loader,
+                        model, model_criterion, center_criterion,
+                        model_optimizer, center_optimizer, use_gpu)
 
         eval_info = evaluate(validation_dataset_loader, model,
                              model_criterion, center_criterion, use_gpu)
@@ -106,7 +104,8 @@ def train(args):
         if eval_info['f1'] >= best_f1_val:
             model_filename = (args.name + '_epoch_{:02d}'
                                           '-valLoss_{:.5f}'
-                                          '-valF1_{:.5f}'.format(epoch, eval_info['total_loss'],
+                                          '-valF1_{:.5f}'.format(epoch,
+                                                                 eval_info['total_loss'],
                                                                  eval_info['f1']))
             model_path = os.path.join(args.save_dir, model_filename)
             torch.save(model.state_dict(), model_path)
