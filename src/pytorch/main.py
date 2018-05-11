@@ -30,7 +30,6 @@ def print_eval_info(eval_info, epoch):
 def train(args):
     # model
     model = SqueezeModel(num_classes=args.num_classes)
-    swa_model = SqueezeModel(num_classes=args.num_classes)
 
     if args.model:
         model.load_state_dict(torch.load(args.model))
@@ -40,7 +39,6 @@ def train(args):
     if args.gpu > -1:
         use_gpu = True
         model.cuda(args.gpu)
-        swa_model.cuda(args.gpu)
 
     # dataset
     input_shape = (args.num_channels, args.height, args.width)
