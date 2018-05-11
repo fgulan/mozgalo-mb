@@ -88,26 +88,13 @@ def train(args):
     center_lr_scheduler = ReduceLROnPlateau(
         center_optimizer, factor=0.25, patience=5, verbose=True)
 
-    swa_n = 0.0
-
     for epoch in range(1, args.max_epoch + 1):
         train_info = train_epoch(train_dataset_loader,
                                  model, model_criterion, center_criterion,
                                  model_optimizer, center_optimizer, use_gpu)
 
-        eval_model = model
 
-        is_swa_epoch = epoch >= args.swa_start_epoch and \
-                        (epoch - args.swa_start_epoch) % args.swa_c_epochs == 0
-
-        if is_swa_epoch:
-            print("Performing and validating SWA model!")
-            moving_average(swa_model, model, 1.0 / (swa_n + 1.0))
-            swa_n += 1.0
-            eval_model = swa_model
-
-
-        eval_info = evaluate(validation_dataset_loader, eval_model,
+        eval_info = evaluate(validation_dataset_loader, model,
                              model_criterion, center_criterion, use_gpu)
 
         model_lr_scheduler.step(eval_info['model_loss'])
@@ -115,17 +102,17 @@ def train(args):
 
         print_eval_info(eval_info, epoch)
 
-        if epoch == args.swa_start_epoch:
+        if epoch == 1:
             best_f1_val = eval_info['f1']
 
-        if is_swa_epoch and eval_info['f1'] >= best_f1_val:
+        if eval_info['f1'] >= best_f1_val:
             model_filename = (args.name + '_epoch_{:02d}'
                                           '-valLoss_{:.5f}'
                                           '-valF1_{:.5f}'.format(epoch, eval_info['total_loss'],
                                                                  eval_info['f1']))
             model_path = os.path.join(args.save_dir, model_filename)
-            torch.save(eval_model.state_dict(), model_path)
-            print('Epoch {}: Saved the new best SWA model to: {}'.format(
+            torch.save(model.state_dict(), model_path)
+            print('Epoch {}: Saved the new best model to: {}'.format(
                 epoch, model_path))
             best_f1_val = eval_info['f1']
 
@@ -157,13 +144,6 @@ def main():
     parser.add_argument('--num-channels', default=3, type=int)
     parser.add_argument('--height', default=370, type=int)
     parser.add_argument('--width', default=400, type=int)
-
-    parser.add_argument('--swa-start-epoch', type=float,
-                        default=2, help='SWA start epoch number')
-    parser.add_argument('--swa-lr', type=float,
-                        default=0.05, help='SWA learn ratio')
-    parser.add_argument('--swa-c-epochs', type=int, default=2,
-                        help='SWA model collection frequency/cycle length in epochs')
     args = parser.parse_args()
     train(args)
 
