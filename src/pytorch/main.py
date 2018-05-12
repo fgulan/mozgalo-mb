@@ -60,7 +60,7 @@ def train(args):
 
     # losses
     # model_criterion = CrossEntropyLoss()
-    model_criterion = FocalLoss(class_num=args.num_classes, gamma=-0.5)
+    model_criterion = FocalLoss(class_num=args.num_classes, gamma=2)
     center_criterion = CenterLoss(num_classes=args.num_classes,
                                   feat_dim=model.num_features,
                                   use_gpu=use_gpu)
