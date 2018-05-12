@@ -135,7 +135,7 @@ def main():
     parser.add_argument(
         '--num-classes', help="Number of classes", default=26, type=int)
     parser.add_argument(
-        '--num-threads', help="Number of threads to use", default=4, type=int)
+        '--num-threads', help="Number of threads to use", default=8, type=int)
     parser.add_argument('--batch-size', help="Batch size",
                         default=64, type=int)
     parser.add_argument('--num-channels', default=3, type=int)
