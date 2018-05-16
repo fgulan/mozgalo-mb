@@ -11,12 +11,17 @@ import pdb
 
 
 class ImgAugTransforms:
+    
     def __init__(self):
+
+        sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+        rarely = lambda aug: iaa.Sometimes(0.05, aug)
+
         self.seq = iaa.Sequential([
-              iaa.GaussianBlur((0, 1.0)),
-              iaa.AdditiveGaussianNoise(scale=0.05*255),
-              iaa.PiecewiseAffine(scale=(0, 0.035)),
-              ])
+              sometimes(iaa.GaussianBlur((0, 1.0))),
+              sometimes(iaa.AdditiveGaussianNoise(scale=0.05*255)),
+            ])
+
     def __call__(self, img):
         return self.seq.augment_image(img)
 
