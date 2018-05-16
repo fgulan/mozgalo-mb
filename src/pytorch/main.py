@@ -3,14 +3,13 @@ import os
 
 import torch
 from center_loss import CenterLoss
-from focal_loss import FocalLoss
 from model import SqueezeModel
 from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from train import data_transformations, train_epoch, evaluate
-
+from torch.nn import CrossEntropyLoss
 
 def print_eval_info(eval_info, epoch):
     print("\n")
@@ -59,8 +58,7 @@ def train(args):
                                            pin_memory=True)
 
     # losses
-    # model_criterion = CrossEntropyLoss()
-    model_criterion = FocalLoss(class_num=args.num_classes, gamma=2)
+    model_criterion = CrossEntropyLoss()
     center_criterion = CenterLoss(num_classes=args.num_classes,
                                   feat_dim=model.num_features,
                                   use_gpu=use_gpu)
