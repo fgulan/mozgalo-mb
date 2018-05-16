@@ -3,18 +3,32 @@ import torch
 from sklearn.metrics import f1_score, precision_score, recall_score
 from torch.nn.utils import clip_grad_norm_
 from torchvision import transforms
+from imgaug import augmenters as iaa
 
 from data import random_erase, crop_upper_part
 from utils import AverageMeter
+import pdb
+
+
+class ImgAugTransforms:
+    def __init__(self):
+        self.seq = iaa.Sequential([
+              iaa.GaussianBlur((0, 1.0)),
+              iaa.AdditiveGaussianNoise(scale=0.05*255),
+              iaa.PiecewiseAffine(scale=(0, 0.035)),
+              ])
+    def __call__(self, img):
+        return self.seq.augment_image(img)
 
 
 def train_data_transformations(input_shape, crop_perc=0.5):
     return transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(
             np.array(x, dtype=np.uint8), crop_perc)),
+        ImgAugTransforms(),
         transforms.ToPILImage(),
         transforms.RandomAffine(
-            degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
+            degrees=10, translate=(0.1, 0.1), scale=(0.3, 1.4)),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(
             brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
@@ -84,9 +98,9 @@ def train_epoch(loader, model, model_criterion, center_criterion,
         logit, features = model(input=input_var, target=target_var)
         y_pred = logit.max(1)[1]
 
-        one_hot_target = to_onehot(target_var, num_classes=model.num_classes, use_gpu=use_gpu)
+        #one_hot_target = to_onehot(target_var, num_classes=model.num_classes, use_gpu=use_gpu)
 
-        model_loss = model_criterion(input=logit, target=one_hot_target)
+        model_loss = model_criterion(input=logit, target=target_var)
         center_loss = center_criterion(features, target_var)
         loss = model_loss + center_loss
 
@@ -150,9 +164,9 @@ def evaluate(loader, model, model_criterion,
         logit, features = model(input_var)
         y_pred = logit.max(1)[1]
 
-        one_hot_target = to_onehot(target_var, num_classes=model.num_classes, use_gpu=use_gpu)
+        #one_hot_target = to_onehot(target_var, num_classes=model.num_classes, use_gpu=use_gpu)
 
-        model_loss = model_criterion(input=logit, target=one_hot_target)
+        model_loss = model_criterion(input=logit, target=target_var)
         center_loss = center_criterion(features, target_var)
         loss = model_loss + center_loss
 
