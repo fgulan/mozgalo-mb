@@ -1,10 +1,7 @@
-import os
-import torch
 import numpy as np
-
-from torchvision import transforms
-from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import f1_score, precision_score, recall_score
+from torch.nn.utils import clip_grad_norm_
+from torchvision import transforms
 
 from data import random_erase, crop_upper_part
 from utils import AverageMeter
@@ -87,7 +84,7 @@ def train_epoch(loader, model, model_criterion, center_criterion,
 
         model_optimizer.step()
         center_optimizer.step()
-        
+
         num_correct = float(y_pred.eq(target_var).long().sum().item())
         total_correct += num_correct
 
@@ -96,10 +93,11 @@ def train_epoch(loader, model, model_criterion, center_criterion,
         model_loss_meter.update(model_loss.item(), sample_count)
         center_loss_meter.update(center_loss.item(), sample_count)
 
-        print('Batch {}/{} | loss {:.6f} model_loss {:.6f} center_loss {:.6f} | accuracy = {:.6f}'
-              .format(i + 1, batch_count, total_loss_meter.avg, model_loss_meter.avg,
-                      center_loss_meter.avg, avg_acc),
-              end="\r", flush=True)
+        print(
+            'Batch {}/{} | loss {:.6f} model_loss {:.6f} center_loss {:.6f} | accuracy = {:.6f}'
+            .format(i + 1, batch_count, total_loss_meter.avg, model_loss_meter.avg,
+                    center_loss_meter.avg, avg_acc),
+            end="\r", flush=True)
 
     num_samples = float(len(loader.dataset))
     accuracy = total_correct / num_samples
