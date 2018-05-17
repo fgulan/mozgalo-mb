@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class CenterLoss(nn.Module):
     """Center loss.
     
@@ -11,6 +12,7 @@ class CenterLoss(nn.Module):
         num_classes (int): number of classes.
         feat_dim (int): feature dimension.
     """
+
     def __init__(self, num_classes=10, feat_dim=2, loss_weight=0.003, use_gpu=True):
         super(CenterLoss, self).__init__()
         self.num_classes = num_classes
@@ -30,8 +32,10 @@ class CenterLoss(nn.Module):
             labels: ground truth labels with shape (num_classes).
         """
         batch_size = x.size(0)
-        distmat = torch.pow(x, 2).sum(dim=1, keepdim=True).expand(batch_size, self.num_classes) + \
-                  torch.pow(self.centers, 2).sum(dim=1, keepdim=True).expand(self.num_classes, batch_size).t()
+        distmat = torch.pow(x, 2).sum(dim=1, keepdim=True).expand(batch_size,
+                                                                  self.num_classes) + \
+                  torch.pow(self.centers, 2).sum(dim=1, keepdim=True).expand(self.num_classes,
+                                                                             batch_size).t()
         distmat.addmm_(1, -2, x, self.centers.t())
 
         classes = torch.arange(self.num_classes).long()
@@ -42,7 +46,7 @@ class CenterLoss(nn.Module):
         dist = []
         for i in range(batch_size):
             value = distmat[i][mask[i]]
-            value = value.clamp(min=1e-12, max=1e+12) # for numerical stability
+            value = value.clamp(min=1e-12, max=1e+12)  # for numerical stability
             dist.append(value)
         dist = torch.cat(dist)
         loss = dist.mean()
