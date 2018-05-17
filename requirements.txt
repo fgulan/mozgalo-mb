@@ -23,7 +23,6 @@ jupyter==1.0.0
 jupyter-client==5.2.3
 jupyter-console==5.2.0
 jupyter-core==4.4.0
-Keras==2.1.5
 kiwisolver==1.0.1
 Markdown==2.6.11
 MarkupSafe==1.0
@@ -44,7 +43,6 @@ pickleshare==0.7.4
 Pillow==5.1.0
 pretrainedmodels==0.4.1
 prompt-toolkit==1.0.15
-protobuf==3.5.2.post1
 ptyprocess==0.5.2
 pycparser==2.18
 Pygments==2.2.0
@@ -58,15 +56,9 @@ qtconsole==4.3.1
 scikit-image==0.13.1
 scikit-learn==0.19.1
 scipy==1.0.0
-selectivesearch==0.4
 Send2Trash==1.5.0
 simplegeneric==0.8.1
 six==1.11.0
-tensorboard==1.8.0
-tensorboardX==1.1
-tensorflow==1.5.0
-tensorflow-gpu==1.5.0
-tensorflow-tensorboard==1.5.1
 termcolor==1.1.0
 terminado==0.8.1
 testpath==0.3.1
