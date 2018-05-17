@@ -25,7 +25,11 @@ def print_eval_info(eval_info, epoch):
 
 
 def train(args):
-    # model
+    """
+    Function that starts the model training with evaluation at the end of the each epoch
+    :param args: Command line arguments parsed with the argparse lib
+    """
+
     model = SqueezeModel(num_classes=args.num_classes)
 
     if args.model:

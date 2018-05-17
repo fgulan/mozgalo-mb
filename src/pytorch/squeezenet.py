@@ -1,12 +1,9 @@
-import math
 import torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.utils.model_zoo as model_zoo
 
-
 __all__ = ['SqueezeNet', 'squeezenet1_0', 'squeezenet1_1']
-
 
 model_urls = {
     'squeezenet1_0': 'https://download.pytorch.org/models/squeezenet1_0-a815701f.pth',
@@ -15,6 +12,9 @@ model_urls = {
 
 
 class Fire(nn.Module):
+    """
+    Squeeze Net Fire module
+    """
 
     def __init__(self, inplanes, squeeze_planes,
                  expand1x1_planes, expand3x3_planes):
@@ -38,6 +38,9 @@ class Fire(nn.Module):
 
 
 class SqueezeNet(nn.Module):
+    """
+    Squeeze net architecture implementation.
+    """
 
     def __init__(self, version=1.0, num_classes=1000):
         super(SqueezeNet, self).__init__()

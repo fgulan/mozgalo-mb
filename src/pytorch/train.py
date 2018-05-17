@@ -9,6 +9,12 @@ from utils import AverageMeter
 
 
 def train_data_transformations(input_shape, crop_perc=0.5):
+    """
+    Online image augmentations used in training
+    :param input_shape: Network input shape (H x W x C)
+    :param crop_perc: Percentage of an upper part of the image to be cropped
+    :return: Augmented image converted to a Tensor
+    """
     return transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(
             np.array(x, dtype=np.uint8), crop_perc)),
@@ -26,6 +32,12 @@ def train_data_transformations(input_shape, crop_perc=0.5):
 
 
 def eval_data_transformations(input_shape, crop_perc=0.5):
+    """
+    Online image augmentations used in evaluation
+    :param input_shape: Network input shape (H x W x C)
+    :param crop_perc: Percentage of an upper part of the image to be cropped
+    :return: Augmented image converted to a Tensor
+    """
     return transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(
             np.array(x, dtype=np.uint8), crop_perc)),
@@ -37,18 +49,38 @@ def eval_data_transformations(input_shape, crop_perc=0.5):
 
 
 def data_transformations(input_shape, crop_perc=0.5):
+    """
+    Creates training and evaluation transformation objects
+    :param input_shape: Network input shape (H x W x C)
+    :param crop_perc: Percentage of an upper part of the image to be cropped
+    :return: training transformer and evaluation transformer
+    """
     train_trans = train_data_transformations(input_shape, crop_perc)
     eval_trans = eval_data_transformations(input_shape, crop_perc)
     return train_trans, eval_trans
 
 
 def to_gpu(tensor, use_gpu=True):
+    """
+    Places a Pytorch Tensor object to a GPU if the GPU can be utilized.
+    :param tensor: Tensor object
+    :param use_gpu: Flag which specifies GPU usage
+    :return: Tensor object
+    """
     if use_gpu:
         tensor = tensor.cuda(0)
     return tensor
 
 
 def moving_average(net1, net2, alpha=1):
+    """
+    Calculates the moving average of the network weights. Idea taken from the SWA paper:
+    https://arxiv.org/abs/1803.05407
+    :param net1: First network with trained weights
+    :param net2: Second network with trained weights
+    :param alpha: Decay parameter
+    :return:
+    """
     for param1, param2 in zip(net1.parameters(), net2.parameters()):
         param1.data *= (1.0 - alpha)
         param1.data += param2.data * alpha
@@ -69,6 +101,17 @@ def to_onehot(labels, num_classes, use_gpu=True):
 
 def train_epoch(loader, model, model_criterion, center_criterion,
                 model_optimizer, center_optimizer, use_gpu=True):
+    """
+    Runs one epoch of training.
+    :param loader: Data loader object
+    :param model: Model object
+    :param model_criterion: Primary loss function criterion
+    :param center_criterion: Center loss function criterion
+    :param model_optimizer: Optimizer object for the primary loss
+    :param center_optimizer: Optimizer object for the center loss
+    :param use_gpu: Flag which utilises GPU
+    :return: Dictionary with total_loss, model_loss, center_loss, accuracy as keys
+    """
     batch_count = len(loader)
     total_correct = 0.0
 
@@ -128,6 +171,17 @@ def train_epoch(loader, model, model_criterion, center_criterion,
 
 def evaluate(loader, model, model_criterion,
              center_criterion, use_gpu=True):
+    """
+    Runs validation on the validation set.
+    :param loader: Data loader object
+    :param model: Model object
+    :param model_criterion: Primary loss function criterion
+    :param center_criterion: Center loss function criterion
+    :param use_gpu: Flag which utilises GPU
+    :return: Dictionary with total_loss, model_loss, center_loss, accuracy, f1, precision,
+    and recall as keys. F1, precision, and recall are macro metrics.
+    """
+
     batch_count = len(loader)
     total_correct = 0.0
 
