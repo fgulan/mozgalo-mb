@@ -3,27 +3,9 @@ import torch
 from sklearn.metrics import f1_score, precision_score, recall_score
 from torch.nn.utils import clip_grad_norm_
 from torchvision import transforms
-from imgaug import augmenters as iaa
 
-from data import random_erase, crop_upper_part
+from data import random_erase, crop_upper_part, ImgAugTransforms
 from utils import AverageMeter
-import pdb
-
-
-class ImgAugTransforms:
-    
-    def __init__(self):
-
-        sometimes = lambda aug: iaa.Sometimes(0.5, aug)
-        rarely = lambda aug: iaa.Sometimes(0.05, aug)
-
-        self.seq = iaa.Sequential([
-              sometimes(iaa.GaussianBlur((0, 1.0))),
-              sometimes(iaa.AdditiveGaussianNoise(scale=0.05*255)),
-            ])
-
-    def __call__(self, img):
-        return self.seq.augment_image(img)
 
 
 def train_data_transformations(input_shape, crop_perc=0.5):
@@ -103,8 +85,6 @@ def train_epoch(loader, model, model_criterion, center_criterion,
         logit, features = model(input=input_var, target=target_var)
         y_pred = logit.max(1)[1]
 
-        #one_hot_target = to_onehot(target_var, num_classes=model.num_classes, use_gpu=use_gpu)
-
         model_loss = model_criterion(input=logit, target=target_var)
         center_loss = center_criterion(features, target_var)
         loss = model_loss + center_loss
@@ -168,8 +148,6 @@ def evaluate(loader, model, model_criterion,
               end="\r", flush=True)
         logit, features = model(input_var)
         y_pred = logit.max(1)[1]
-
-        #one_hot_target = to_onehot(target_var, num_classes=model.num_classes, use_gpu=use_gpu)
 
         model_loss = model_criterion(input=logit, target=target_var)
         center_loss = center_criterion(features, target_var)
