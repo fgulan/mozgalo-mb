@@ -1,9 +1,10 @@
 import numpy as np
+import torch
 from sklearn.metrics import f1_score, precision_score, recall_score
 from torch.nn.utils import clip_grad_norm_
 from torchvision import transforms
 
-from data import random_erase, crop_upper_part
+from data import random_erase, crop_upper_part, ImgAugTransforms
 from utils import AverageMeter
 
 
@@ -11,9 +12,10 @@ def train_data_transformations(input_shape, crop_perc=0.5):
     return transforms.Compose([
         transforms.Lambda(lambda x: crop_upper_part(
             np.array(x, dtype=np.uint8), crop_perc)),
+        ImgAugTransforms(),
         transforms.ToPILImage(),
         transforms.RandomAffine(
-            degrees=10, translate=(0.1, 0.1), scale=(0.4, 1.4)),
+            degrees=10, translate=(0.1, 0.1), scale=(0.3, 1.4)),
         transforms.Resize((input_shape[1], input_shape[2])),
         transforms.ColorJitter(
             brightness=0.15, contrast=0.15, saturation=0.1, hue=0.1),
@@ -40,7 +42,7 @@ def data_transformations(input_shape, crop_perc=0.5):
     return train_trans, eval_trans
 
 
-def var(tensor, use_gpu=True):
+def to_gpu(tensor, use_gpu=True):
     if use_gpu:
         tensor = tensor.cuda(0)
     return tensor
@@ -50,6 +52,19 @@ def moving_average(net1, net2, alpha=1):
     for param1, param2 in zip(net1.parameters(), net2.parameters()):
         param1.data *= (1.0 - alpha)
         param1.data += param2.data * alpha
+
+
+def to_onehot(labels, num_classes, use_gpu=True):
+    """
+    Converts int category labels to one-hot representation.
+
+    :param labels: Torch Tensor of int labels representing classes
+    :param num_classes: Total number of classes
+    :param use_gpu: Use GPU or not flag
+    :return: One-hot torch tensor
+    """
+    one_hot = to_gpu(torch.zeros(labels.size(0), num_classes), use_gpu)
+    return one_hot.scatter_(1, labels.unsqueeze(1), 1)
 
 
 def train_epoch(loader, model, model_criterion, center_criterion,
@@ -64,7 +79,7 @@ def train_epoch(loader, model, model_criterion, center_criterion,
     total_loss_meter = AverageMeter()
 
     for i, (input, target) in enumerate(loader):
-        input_var, target_var = var(input, use_gpu), var(target, use_gpu)
+        input_var, target_var = to_gpu(input, use_gpu), to_gpu(target, use_gpu)
         sample_count = len(target_var)
 
         logit, features = model(input=input_var, target=target_var)
@@ -95,8 +110,8 @@ def train_epoch(loader, model, model_criterion, center_criterion,
 
         print(
             'Batch {}/{} | loss {:.6f} model_loss {:.6f} center_loss {:.6f} | accuracy = {:.6f}'
-            .format(i + 1, batch_count, total_loss_meter.avg, model_loss_meter.avg,
-                    center_loss_meter.avg, avg_acc),
+                .format(i + 1, batch_count, total_loss_meter.avg, model_loss_meter.avg,
+                        center_loss_meter.avg, avg_acc),
             end="\r", flush=True)
 
     num_samples = float(len(loader.dataset))
@@ -125,7 +140,7 @@ def evaluate(loader, model, model_criterion,
     predictions, targets = [], []
 
     for i, (input, target) in enumerate(loader):
-        input_var, target_var = var(input, use_gpu), var(target, use_gpu)
+        input_var, target_var = to_gpu(input, use_gpu), to_gpu(target, use_gpu)
         sample_count = len(target_var)
 
         print('Eval batch {}/{}'

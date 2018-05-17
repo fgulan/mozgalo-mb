@@ -1,8 +1,8 @@
-import os
-import random
 import numpy as np
+import os
 from PIL import Image
 from torch.utils.data import Dataset
+from imgaug import augmenters as iaa
 
 
 def crop_upper_part(image, percent=0.4):
@@ -37,6 +37,24 @@ def random_erase(value, max_perc=0.5):
     value[top_y:r_height + top_y, top_x:top_x + r_width, :] = np.mean(value)
 
     return value
+
+
+class ImgAugTransforms:
+    """
+    imgaug library augmentations.
+    https://github.com/aleju/imgaug
+    """
+
+    def __init__(self):
+        sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+
+        self.seq = iaa.Sequential([
+            sometimes(iaa.GaussianBlur((0, 1.0))),
+            sometimes(iaa.AdditiveGaussianNoise(scale=0.05*255)),
+        ])
+
+    def __call__(self, img):
+        return self.seq.augment_image(img)
 
 
 class BinaryDataset(Dataset):

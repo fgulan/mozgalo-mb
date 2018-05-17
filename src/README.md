@@ -8,11 +8,7 @@ This folder contains the source code and data
 Contains raw data.
 
 ### models/
-Contains trained models.
-
-### logs/
-Tensorboard visualizations. Run `tensorboard --logdir=/path_to_your_logs` to see the
-logs in the browser.
+Contains Keras trained models.
 
 ### utils/
 Utility functions shared across the code.
