@@ -1,17 +1,17 @@
-from data import crop_upper_part
-from model import SqueezeModelSoftmax
-
-import sys
-import os
-import torch
-import numpy as np
 import argparse
 import pickle
+import sys
 
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
+import numpy as np
+import os
+import torch
 from PIL import Image
 from PIL import ImageFile
+from model import SqueezeModelSoftmax
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+
+from data import crop_upper_part
 
 sys.path.insert(0, '..')
 
@@ -205,8 +205,6 @@ def process_predictions(predictions, thr_path):
         thr_dict = pickle.load(f)
         return threshold_heuristic(predictions, thr_dict)
 
-    return predictions
-
 
 def write_to_csv(predicted_stores, csv_path):
     with open(csv_path, "w") as f:
@@ -239,7 +237,6 @@ def evaluate(args):
 
     num_batches = len(loader)
     for batch_index, test_batch in enumerate(loader):
-
         batch_input_tensors = var(test_batch, args.use_gpu)
 
         batch_predictions = model(batch_input_tensors).cpu().data.numpy()
