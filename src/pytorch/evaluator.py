@@ -1,22 +1,19 @@
+from data import crop_upper_part
+from model import SqueezeModelSoftmax
+
 import sys
 import os
 import torch
 import numpy as np
-import shutil
 import argparse
 import pickle
 
-from torchvision.datasets import ImageFolder
-from sklearn.metrics import classification_report, f1_score
 from torch.utils.data import Dataset, DataLoader
-from torch.autograd import Variable
 from torchvision import transforms
 from PIL import Image
 from PIL import ImageFile
 
 sys.path.insert(0, '..')
-from data import crop_upper_part
-from model import SqueezeModelSoftmax
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 NUM_CLASSES = 26
@@ -115,7 +112,8 @@ def data_preprocess_transformations(input_shape, crop_perc=0.5):
 def list_input_images(images_folder):
     """
     Args:
-        images_folder: Folder with input images with name template: <int_id>.jpg
+        images_folder: Folder with input images with name template:
+        <int_id>.jpg
 
     Returns:
         List of tuples: (image_file_name, image_int_id)
@@ -128,7 +126,7 @@ def list_input_images(images_folder):
         name_components = file.split(".")
         extension = name_components[1].lower()
 
-        if extension == 'jpg' or extension == 'jpeg':
+        if extension.lower() == 'jpg' or extension.lower() == 'jpeg':
             image_id = int(name_components[0])
             images.append((file, image_id))
 
@@ -181,7 +179,8 @@ def threshold_heuristic(predictions, thr_dict):
         pred_label = np.argmax(act)
         if class_dict[pred_label] != "Other":
             if np.max(act) < max(thr_dict[class_dict[pred_label]], 0.5):
-                # Replace as if the Other is predicted because it doesn't satsify the threshold
+                # Replace as if the Other is predicted because it
+                # doesn't satsify the threshold
                 other_vector = np.zeros(NUM_CLASSES, dtype=np.float32)
                 other_vector[class_labels["Other"]] = 1
 
@@ -199,7 +198,7 @@ def identity_heuristic(predictions):
 
 
 def process_predictions(predictions, thr_path):
-    if thr_path == None:
+    if thr_path is None:
         return predictions
 
     with open(thr_path, "rb") as f:
@@ -265,7 +264,8 @@ def main():
     parser.add_argument(
         '--use-gpu', help="GPU use flag", action='store_true', required=False)
     parser.add_argument(
-        '--csv-path', help="Output CSV saving path", default='eval_results.csv')
+        '--csv-path', help="Output CSV saving path",
+        default='eval_results.csv')
     parser.add_argument(
         '--model', help="Path to the trained model file", required=True)
     parser.add_argument(
