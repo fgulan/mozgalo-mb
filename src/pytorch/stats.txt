@@ -1,0 +1,116 @@
+python evaluator.py --model ./models/26_more_aug_epoch_21-valLoss_0.01981-valF1_0.99838 --dataset ../data/robust_ml_challenge_final_testset/ --use-gpu --thrs-path ./models/thresholds_all_data.pkl --csv-path eval_aug_thr.csv
+
+Albertsons       => 203
+BJs              => 196
+CVSPharmacy      => 196
+Costco           => 197
+FredMeyer        => 194
+Frys             => 199
+HEB              => 196
+HarrisTeeter     => 194
+HyVee            => 195
+JewelOsco        => 199
+KingSoopers      => 199
+Kroger           => 194
+Meijer           => 193
+Other            => 5085
+Publix           => 198
+Safeway          => 189
+SamsClub         => 194
+ShopRite         => 195
+Smiths           => 195
+StopShop         => 199
+Target           => 199
+Walgreens        => 203
+Walmart          => 198
+Wegmans          => 198
+WholeFoodsMarket => 196
+WinCoFoods       => 196
+
+python evaluator.py --model ./models/26_more_aug_epoch_21-valLoss_0.01981-valF1_0.99838 --dataset ../data/robust_ml_challenge_final_testset/ --use-gpu --csv-path eval_aug.csv
+
+Albertsons       => 207
+BJs              => 204
+CVSPharmacy      => 207
+Costco           => 201
+FredMeyer        => 261
+Frys             => 201
+HEB              => 203
+HarrisTeeter     => 204
+HyVee            => 217
+JewelOsco        => 201
+KingSoopers      => 202
+Kroger           => 211
+Meijer           => 202
+Other            => 4701
+Publix           => 206
+Safeway          => 232
+SamsClub         => 199
+ShopRite         => 258
+Smiths           => 200
+StopShop         => 265
+Target           => 200
+Walgreens        => 210
+Walmart          => 205
+Wegmans          => 203
+WholeFoodsMarket => 200
+WinCoFoods       => 200
+
+python evaluator.py --model ./models/26_epoch_48-valLoss_0.01565-valF1_0.99899-testF1_0.99701 --dataset ../data/robust_ml_challenge_final_testset/ --use-gpu --thrs-path ./models/thresholds_all_data.pkl --csv-path eval_thr.csv
+
+Albertsons       => 201
+BJs              => 197
+CVSPharmacy      => 196
+Costco           => 196
+FredMeyer        => 190
+Frys             => 197
+HEB              => 190
+HarrisTeeter     => 194
+HyVee            => 194
+JewelOsco        => 198
+KingSoopers      => 197
+Kroger           => 194
+Meijer           => 189
+Other            => 5121
+Publix           => 196
+Safeway          => 187
+SamsClub         => 195
+ShopRite         => 195
+Smiths           => 197
+StopShop         => 190
+Target           => 199
+Walgreens        => 200
+Walmart          => 200
+Wegmans          => 195
+WholeFoodsMarket => 197
+WinCoFoods       => 195
+
+
+python evaluator.py --model ./models/26_epoch_48-valLoss_0.01565-valF1_0.99899-testF1_0.99701 --dataset ../data/robust_ml_challenge_final_testset/ --use-gpu --csv-path eval.csv
+
+Albertsons       => 207
+BJs              => 213
+CVSPharmacy      => 212
+Costco           => 199
+FredMeyer        => 209
+Frys             => 200
+HEB              => 198
+HarrisTeeter     => 203
+HyVee            => 207
+JewelOsco        => 201
+KingSoopers      => 201
+Kroger           => 203
+Meijer           => 198
+Other            => 4856
+Publix           => 204
+Safeway          => 215
+SamsClub         => 200
+ShopRite         => 244
+Smiths           => 203
+StopShop         => 205
+Target           => 200
+Walgreens        => 212
+Walmart          => 205
+Wegmans          => 204
+WholeFoodsMarket => 201
+WinCoFoods       => 200
