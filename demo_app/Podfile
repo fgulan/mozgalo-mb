@@ -1,0 +1,9 @@
+platform :ios, '11.0'
+use_frameworks!
+
+def app_pods
+end
+
+target 's-Receipt' do
+  app_pods
+end

@@ -1,0 +1,6 @@
+framework module Pods_s_Receipt {
+  umbrella header "Pods-s-Receipt-umbrella.h"
+
+  export *
+  module * { export * }
+}
